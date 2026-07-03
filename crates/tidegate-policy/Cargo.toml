@@ -1,0 +1,18 @@
+[package]
+name = "tidegate-policy"
+description = "Pure, IO-free policy engine for Tidegate: deny-by-default grants, scope lattice, human-approval-gated widening"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+# Dependency budget: serde only (grants must round-trip to storage).
+# This crate performs no IO — that is INV-P7's compile-time half.
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+proptest = "1"
+serde_json = { workspace = true }

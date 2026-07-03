@@ -1,0 +1,28 @@
+[package]
+name = "tidegate-vault"
+description = "Tidegate's encrypted secret store: AES-256-GCM envelopes on disk, master key in the OS keychain, vault is the sole decryptor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+# Dependency budget (each line justified):
+#   rusqlite  — the on-disk store (bundled: no system sqlite variance)
+#   aes-gcm   — the envelope cipher (RustCrypto, audited)
+#   keyring   — OS keychain for the master key (INV-V4)
+#   zeroize   — secret buffers wiped on drop (INV-V3)
+#   rand      — nonces + key generation
+#   thiserror — error plumbing without hand-rolled boilerplate
+# Deliberately absent: any network crate (INV: vault has no network deps).
+[dependencies]
+rusqlite = { workspace = true }
+aes-gcm = "0.10"
+keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
+zeroize = "1"
+rand = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

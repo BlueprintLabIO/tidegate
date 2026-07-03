@@ -1,0 +1,29 @@
+[package]
+name = "tidegate"
+description = "Local permissions gate for AI coding agents: connect a service once, every agent gets scoped, audited access — they never see the key"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "tidegate"
+path = "src/main.rs"
+
+[dependencies]
+tidegate-policy = { workspace = true }
+tidegate-vault = { workspace = true }
+tidegate-daemon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+rand = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+ureq = { version = "2", features = ["json"] }
+rpassword = "7"
+dirs = "5"
+
+[dev-dependencies]
+tempfile = "3"
