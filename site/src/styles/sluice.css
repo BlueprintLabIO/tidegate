@@ -1,7 +1,8 @@
 /* ============================================================
    SLUICE — neo-brutalist design system for Tidegate
    A sluice is the gate that controls the flow. So is this.
-   Rules: radius 0. Ink borders. Hard shadows. One loud orange.
+   Rules: radius 0. Ink borders. Hard shadows. Coral shouts,
+   tide aqua murmurs. Boxes only for objects.
    ============================================================ */
 
 /* ---------- fonts (Fontsource CDN, woff2, swap) ---------- */
@@ -29,29 +30,31 @@
 
 /* ---------- tokens ---------- */
 :root {
-  /* surfaces + ink */
-  --paper: #f2efe6;
-  --card: #fffdf7;
-  --ink: #111111;
-  --ink-soft: #45413a;
-  --ink-faint: #6f6a60;
+  /* surfaces + ink (harbor, not hazard) */
+  --paper: #f1efe5;          /* foam */
+  --card: #fcfbf4;
+  --ink: #0f2233;            /* abyss navy */
+  --ink-soft: #3e5266;
+  --ink-faint: #697c8d;
 
-  /* the one loud color */
-  --gate: #ff4d00;
+  /* coral shouts */
+  --gate: #ff5a47;
+  /* tide aqua murmurs */
+  --tide: #189e94;
 
-  /* permission semantics */
+  /* permission semantics — never fashionable */
   --allow: #0e9f6e;
   --ask: #ffb800;
   --deny: #e02424;
 
-  /* terminal */
-  --term: #141414;
-  --term-bar: #1f1d19;
-  --term-ink: #ece8db;
-  --term-dim: #8d887b;
+  /* terminal (below the waterline) */
+  --term: #0b1a26;
+  --term-bar: #081420;
+  --term-ink: #e6ece7;
+  --term-dim: #77948f;
 
   /* structure */
-  --bw: 3px;                 /* standard border */
+  --bw: 3px;
   --bw-thin: 2px;
   --shadow: 8px 8px 0 var(--ink);
   --shadow-sm: 5px 5px 0 var(--ink);
@@ -61,19 +64,18 @@
   --font-display: 'Archivo Black', 'Arial Black', sans-serif;
   --font-body: 'Archivo', 'Helvetica Neue', sans-serif;
   --font-mono: 'Martian Mono', 'Courier New', monospace;
-
-  --measure: 58ch;
 }
 
 /* ---------- base ---------- */
 *, *::before, *::after { box-sizing: border-box; }
 
 html { scroll-behavior: smooth; }
+html, body { overflow-x: clip; }
 
 body {
   margin: 0;
   background-color: var(--paper);
-  background-image: radial-gradient(rgba(17, 17, 17, 0.16) 1.2px, transparent 1.2px);
+  background-image: radial-gradient(rgba(15, 34, 51, 0.15) 1.2px, transparent 1.2px);
   background-size: 26px 26px;
   color: var(--ink);
   font-family: var(--font-body);
@@ -116,6 +118,16 @@ button {
 
 .sl-mono { font-family: var(--font-mono); }
 
+/* ---------- redaction (the gate, in type form) ---------- */
+.sl-redact {
+  color: transparent;
+  background-image: linear-gradient(var(--ink), var(--ink));
+  background-repeat: no-repeat;
+  background-size: 100% 0.8em;
+  background-position: center 46%;
+  padding: 0 0.03em;
+}
+
 /* ---------- button ---------- */
 .sl-btn {
   display: inline-flex;
@@ -136,16 +148,8 @@ button {
 }
 .sl-btn:hover { transform: translate(2px, 2px); box-shadow: var(--shadow-xs); }
 .sl-btn:active { transform: translate(5px, 5px); box-shadow: none; }
-.sl-btn--gate { background: var(--gate); }
+.sl-btn--gate { background: var(--gate); color: var(--card); }
 .sl-btn--ink { background: var(--ink); color: var(--paper); }
-
-/* ---------- card ---------- */
-.sl-card {
-  background: var(--card);
-  border: var(--bw) solid var(--ink);
-  box-shadow: var(--shadow);
-  padding: 26px;
-}
 
 /* ---------- permission chips ---------- */
 .sl-chip {
@@ -165,17 +169,16 @@ button {
 .sl-chip--allow { background: var(--allow); color: #fff; }
 .sl-chip--ask { background: var(--ask); color: var(--ink); }
 .sl-chip--deny { background: var(--deny); color: #fff; }
+.sl-chip--gate { background: var(--gate); color: #fff; }
 
-/* ---------- caution stripe ---------- */
-.sl-stripe {
-  height: 14px;
+/* ---------- tide gauge (the waterline) ---------- */
+.sl-gauge {
+  height: 26px;
   border-top: var(--bw) solid var(--ink);
   border-bottom: var(--bw) solid var(--ink);
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--ink) 0 14px,
-    var(--gate) 14px 28px
-  );
+  background:
+    repeating-linear-gradient(90deg, transparent 0 30px, rgba(241, 239, 229, 0.85) 30px 33px),
+    linear-gradient(to bottom, var(--ink) 0 55%, var(--tide) 55% 100%);
 }
 
 /* ---------- rubber stamp ---------- */
@@ -279,7 +282,7 @@ button {
   padding: 3px 7px;
   flex: none;
 }
-.sl-cmd:hover .sl-cmd__copy { color: var(--gate); }
+.sl-cmd:hover .sl-cmd__copy { color: var(--tide); }
 
 /* ---------- tabs ---------- */
 .sl-tabs {
@@ -300,7 +303,7 @@ button {
 }
 .sl-tab:last-child { border-right-width: var(--bw); }
 .sl-tab[aria-selected='true'] { background: var(--ink); color: var(--paper); }
-.sl-tab:hover:not([aria-selected='true']) { background: var(--gate); }
+.sl-tab:hover:not([aria-selected='true']) { background: var(--tide); color: var(--card); }
 
 /* ---------- receipt ---------- */
 .sl-receipt {
@@ -369,6 +372,13 @@ button {
 }
 @keyframes sl-rise {
   to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 480px) {
+  .sl-term { font-size: 11px; }
+  .sl-term__body { padding: 16px 14px; }
+  .sl-receipt { font-size: 10.5px; padding: 14px 14px 12px; }
+  .sl-cmd { font-size: 12px; padding: 12px 14px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

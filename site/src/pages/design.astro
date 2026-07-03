@@ -2,14 +2,15 @@
 import Base from '../layouts/Base.astro'
 
 const swatches = [
-  { name: 'paper', hex: '#F2EFE6' },
-  { name: 'card', hex: '#FFFDF7' },
-  { name: 'ink', hex: '#111111' },
-  { name: 'gate', hex: '#FF4D00' },
+  { name: 'paper', hex: '#F1EFE5' },
+  { name: 'card', hex: '#FCFBF4' },
+  { name: 'ink', hex: '#0F2233' },
+  { name: 'gate', hex: '#FF5A47' },
+  { name: 'tide', hex: '#189E94' },
   { name: 'allow', hex: '#0E9F6E' },
   { name: 'ask', hex: '#FFB800' },
   { name: 'deny', hex: '#E02424' },
-  { name: 'term', hex: '#141414' },
+  { name: 'term', hex: '#0B1A26' },
 ]
 ---
 
@@ -23,7 +24,8 @@ const swatches = [
       <h1 class="sl-display">Sluice</h1>
       <p class="sl-mono">
         Tidegate's design system. A sluice is the gate that controls the flow.
-        Rules: radius 0 · ink borders · hard shadows · one loud orange.
+        Rules: radius 0 · ink borders · hard shadows · coral shouts, tide aqua
+        murmurs · boxes only for objects.
       </p>
     </header>
 
@@ -75,8 +77,13 @@ const swatches = [
     </section>
 
     <section>
-      <h2 class="sl-label">Caution stripe</h2>
-      <div class="sl-stripe"></div>
+      <h2 class="sl-label">Redaction</h2>
+      <span class="sl-display" style="font-size:40px">sec<span class="sl-redact">re</span>ts</span>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Tide gauge</h2>
+      <div class="sl-gauge"></div>
     </section>
 
     <section>
