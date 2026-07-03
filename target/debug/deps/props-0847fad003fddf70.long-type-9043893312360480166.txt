@@ -1,1 +1,0 @@
-proptest::strategy::Map<(TupleUnion<((u32, Arc<&str>), (u32, Arc<&str>))>, TupleUnion<((u32, Arc<&str>), (u32, Arc<&str>))>), {closure@crates/tidegate-policy/tests/props.rs:19:19: 19:41}>
