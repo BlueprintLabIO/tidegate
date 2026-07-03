@@ -15,9 +15,60 @@ use std::sync::Arc;
 use std::time::Duration;
 use tidegate_policy::AgentKey;
 
-/// Serve one agent connection to completion over the given reader/writer.
-/// `token` identifies the agent; unknown tokens get a uniform init error
-/// (INV-D4).
+/// Handle one authenticated MCP request against the single shared gateway.
+/// Returns `None` for notifications (nothing to reply). This is the seam the
+/// HTTP `/api/mcp` endpoint calls, so every agent session — however many
+/// shim processes — funnels through one Gateway (one pendings map, one live
+/// `PolicyState`). Unknown tokens get a uniform error (INV-D4).
+pub fn handle_request(
+    gw: &Gateway,
+    token: &str,
+    elicit_capable: bool,
+    msg: &Message,
+) -> Option<Message> {
+    if msg.is_notification() {
+        return None;
+    }
+    let id = msg.id.clone().unwrap_or(json!(null));
+
+    let token_hash = sha256_hex(token);
+    let agent = match gw.db.agent_by_token_hash(&token_hash) {
+        Ok(Some((agent, project))) => AgentKey { agent, project },
+        _ => {
+            return Some(Message::error_response(
+                id,
+                -32001,
+                "tidegate: unrecognized agent token",
+            ))
+        }
+    };
+
+    let method = msg.method.as_deref().unwrap_or("");
+    let reply = match method {
+        "initialize" => Message::response(
+            id,
+            json!({
+                "protocolVersion": MCP_PROTOCOL_VERSION,
+                "capabilities": { "tools": { "listChanged": false } },
+                "serverInfo": { "name": "tidegate", "version": env!("CARGO_PKG_VERSION") }
+            }),
+        ),
+        "ping" => Message::response(id, json!({})),
+        "tools/list" => match aggregate_tools(gw) {
+            Ok(tools) => Message::response(id, json!({ "tools": tools })),
+            Err(e) => Message::error_response(id, -32000, &e),
+        },
+        "tools/call" => {
+            let (name, args) = call_params(msg.params.as_ref());
+            handle_tools_call(gw, &agent, &name, args, elicit_capable, id)
+        }
+        other => Message::error_response(id, -32601, &format!("method not supported: {other}")),
+    };
+    Some(reply)
+}
+
+/// Convenience stream loop over a reader/writer (used in tests). Production
+/// agents reach the gateway through the shim → HTTP → [`handle_request`].
 pub fn serve(
     gw: Arc<Gateway>,
     token: &str,
@@ -25,57 +76,16 @@ pub fn serve(
     input: impl BufRead,
     mut output: impl Write,
 ) {
-    let token_hash = sha256_hex(token);
-    let agent = match gw.db.agent_by_token_hash(&token_hash) {
-        Ok(Some((agent, project))) => AgentKey { agent, project },
-        _ => {
-            // Uniform refusal: no tool list, no oracle.
-            let _ = write_message(
-                &mut output,
-                &Message::error_response(json!(0), -32001, "tidegate: unrecognized agent token"),
-            );
-            return;
-        }
-    };
-
     for line in input.lines() {
         let Ok(line) = line else { break };
         if line.trim().is_empty() {
             continue;
         }
         let Some(msg) = crate::jsonrpc::parse_line(&line) else { continue };
-        if msg.is_notification() {
-            continue; // initialized, cancelled, etc. — nothing to do
-        }
-        if !msg.is_request() {
-            continue;
-        }
-        let id = msg.id.clone().unwrap_or(json!(null));
-        let method = msg.method.as_deref().unwrap_or("");
-        let reply = match method {
-            "initialize" => Message::response(
-                id,
-                json!({
-                    "protocolVersion": MCP_PROTOCOL_VERSION,
-                    "capabilities": { "tools": { "listChanged": false } },
-                    "serverInfo": { "name": "tidegate", "version": env!("CARGO_PKG_VERSION") }
-                }),
-            ),
-            "ping" => Message::response(id, json!({})),
-            "tools/list" => match aggregate_tools(&gw) {
-                Ok(tools) => Message::response(id, json!({ "tools": tools })),
-                Err(e) => Message::error_response(id, -32000, &e),
-            },
-            "tools/call" => {
-                let (name, args) = call_params(&msg.params);
-                handle_tools_call(&gw, &agent, &name, args, elicit_capable, id)
+        if let Some(reply) = handle_request(&gw, token, elicit_capable, &msg) {
+            if write_message(&mut output, &reply).is_err() {
+                break;
             }
-            other => {
-                Message::error_response(id, -32601, &format!("method not supported: {other}"))
-            }
-        };
-        if write_message(&mut output, &reply).is_err() {
-            break;
         }
     }
 }
@@ -93,8 +103,8 @@ fn aggregate_tools(gw: &Gateway) -> Result<Vec<Value>, String> {
     Ok(out)
 }
 
-fn call_params(params: &Option<Value>) -> (String, Value) {
-    let p = params.clone().unwrap_or(json!({}));
+fn call_params(params: Option<&Value>) -> (String, Value) {
+    let p = params.cloned().unwrap_or(json!({}));
     let name = p.get("name").and_then(Value::as_str).unwrap_or_default().to_string();
     let args = p.get("arguments").cloned().unwrap_or(json!({}));
     (name, args)

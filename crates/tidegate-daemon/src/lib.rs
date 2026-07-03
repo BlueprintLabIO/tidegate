@@ -22,6 +22,7 @@ pub mod http;
 pub mod jsonrpc;
 pub mod mcp_server;
 pub mod notify;
+pub mod sock;
 pub mod state;
 pub mod upstream;
 
@@ -36,20 +37,29 @@ pub struct Paths {
 }
 
 impl Paths {
+    #[must_use] 
     pub fn new(home: PathBuf) -> Self {
         Paths { home }
     }
+    #[must_use] 
     pub fn state_db(&self) -> PathBuf {
         self.home.join("state.db")
     }
+    #[must_use] 
     pub fn vault_dir(&self) -> PathBuf {
         self.home.join("vault")
     }
+    #[must_use] 
     pub fn dash_key_file(&self) -> PathBuf {
         self.home.join("dashboard.key")
     }
+    #[must_use] 
     pub fn control_port_file(&self) -> PathBuf {
         self.home.join("control.port")
+    }
+    #[must_use] 
+    pub fn control_sock(&self) -> PathBuf {
+        self.home.join("control.sock")
     }
 }
 

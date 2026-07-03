@@ -1,5 +1,5 @@
 //! The daemon's persistent state: agents, servers, policy, pending
-//! approvals, and the hash-chained receipt log. One SQLite file
+//! approvals, and the hash-chained receipt log. One `SQLite` file
 //! (`state.db`), WAL mode, no secret material ever (INV-D1: secrets live in
 //! the vault's separate database, full stop).
 
@@ -36,7 +36,7 @@ pub struct ServerRow {
     pub command: String,
     pub args: Vec<String>,
     /// Vault secret name → env var to inject, e.g.
-    /// {"github": "GITHUB_PERSONAL_ACCESS_TOKEN"}.
+    /// {"github": "`GITHUB_PERSONAL_ACCESS_TOKEN`"}.
     pub secret_env: std::collections::BTreeMap<String, String>,
     pub descriptor: Descriptor,
 }
@@ -48,7 +48,7 @@ pub struct Descriptor {
     /// {"arg": "repo", "template": "github:repo:{}"}.
     #[serde(default)]
     pub scopers: Vec<Scoper>,
-    /// Per-tool class overrides beating annotations: {"delete_repo": "write"}.
+    /// Per-tool class overrides beating annotations: {"`delete_repo"`: "write"}.
     #[serde(default)]
     pub tool_classes: std::collections::BTreeMap<String, String>,
 }
@@ -120,7 +120,7 @@ impl Db {
     }
 
     fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.conn.lock().unwrap_or_else(|e| e.into_inner())
+        self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     // ---- agents ----
@@ -229,7 +229,7 @@ impl Db {
     }
 
     /// Persist one mutation. Callers apply the same mutation to their
-    /// in-memory PolicyState; this keeps disk in lockstep.
+    /// in-memory `PolicyState`; this keeps disk in lockstep.
     pub fn persist_mutation(&self, m: &Mutation) -> Result<(), StateError> {
         let conn = self.conn();
         match m {
@@ -395,7 +395,7 @@ impl Db {
             if r.prev_hash != prev || r.hash != expect {
                 return Ok(Some(r.seq));
             }
-            prev = r.hash.clone();
+            prev.clone_from(&r.hash);
         }
         Ok(None)
     }
@@ -418,16 +418,23 @@ fn receipt_hash(
     hex(&h.finalize())
 }
 
+#[must_use] 
 pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+    use std::fmt::Write as _;
+    bytes.iter().fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
+        let _ = write!(s, "{b:02x}");
+        s
+    })
 }
 
+#[must_use] 
 pub fn sha256_hex(s: &str) -> String {
     let mut h = Sha256::new();
     h.update(s.as_bytes());
     hex(&h.finalize())
 }
 
+#[must_use] 
 pub fn unix_now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -435,6 +442,7 @@ pub fn unix_now() -> i64 {
         .unwrap_or(0)
 }
 
+#[must_use] 
 pub fn random_id(prefix: &str) -> String {
     use rand::Rng;
     let mut rng = rand::thread_rng();

@@ -45,7 +45,7 @@ pub enum CallOutcome {
         id: String,
         /// One-time secret for in-session elicitation resolution. Present
         /// only when the caller declared the client capability; held in shim
-        /// memory, never in any tool result (THREAT_MODEL.md).
+        /// memory, never in any tool result (`THREAT_MODEL.md`).
         elicit_secret: Option<String>,
         message_for_model: String,
     },
@@ -71,6 +71,7 @@ pub enum Answer {
 }
 
 impl Answer {
+    #[must_use] 
     pub fn parse(s: &str) -> Option<Self> {
         match s {
             "allow_once" => Some(Answer::AllowOnce),
@@ -119,7 +120,7 @@ impl Gateway {
     }
 
     fn lock_policy(&self) -> std::sync::MutexGuard<'_, PolicyState> {
-        self.policy.lock().unwrap_or_else(|e| e.into_inner())
+        self.policy.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     /// Apply + persist a policy mutation atomically enough for one process:
@@ -249,7 +250,7 @@ impl Gateway {
             created_at: unix_now(),
             resolution: None,
         };
-        self.pendings.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), pending);
+        self.pendings.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(id.clone(), pending);
         self.db.append_receipt(
             &id,
             unix_now(),
@@ -261,7 +262,10 @@ impl Gateway {
 
         // The confirmation code travels human channels only: notification +
         // dashboard. Never the return value the model reads.
-        if !elicit_ok {
+        if elicit_ok {
+            // Elicitation path: the dashboard still lists it, so also record
+            // the code there (dashboard reads pendings live); no OS noise.
+        } else {
             notify::send(
                 "Tidegate approval",
                 &format!(
@@ -271,7 +275,7 @@ impl Gateway {
             );
             // Give the human `wait` to answer via notification/dashboard.
             let deadline = std::time::Instant::now() + wait;
-            let mut guard = self.pendings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.pendings.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             loop {
                 if guard.get(&id).and_then(|p| p.resolution).is_some() {
                     break;
@@ -283,16 +287,13 @@ impl Gateway {
                 let (g, _timeout) = self
                     .resolved
                     .wait_timeout(guard, remaining)
-                    .unwrap_or_else(|e| e.into_inner());
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
                 guard = g;
             }
             if let Some(answer) = guard.get(&id).and_then(|p| p.resolution) {
                 drop(guard);
                 return self.after_resolution(&id, answer);
             }
-        } else {
-            // Elicitation path: the dashboard still lists it, so also record
-            // the code there (dashboard reads pendings live); no OS noise.
         }
 
         Ok(CallOutcome::Pending {
@@ -315,7 +316,7 @@ impl Gateway {
         answer: Answer,
     ) -> Result<(), GatewayError> {
         let channel = {
-            let guard = self.pendings.lock().unwrap_or_else(|e| e.into_inner());
+            let guard = self.pendings.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let p = guard.get(pending_id).ok_or_else(|| {
                 GatewayError::UnknownPending(pending_id.to_string())
             })?;
@@ -343,7 +344,7 @@ impl Gateway {
 
         // Widening happens here — and only here — carrying the approval event.
         let (agent, tool, class, resource) = {
-            let mut guard = self.pendings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.pendings.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let p = guard
                 .get_mut(pending_id)
                 .ok_or_else(|| GatewayError::UnknownPending(pending_id.to_string()))?;
@@ -428,9 +429,8 @@ impl Gateway {
     /// code must reach the human through a channel the agent does not read.
     pub fn pending_list(&self, include_codes_with_dash_key: Option<&str>) -> Vec<Value> {
         let with_codes = include_codes_with_dash_key
-            .map(|k| sha256_hex(k) == self.dash_key_hash)
-            .unwrap_or(false);
-        let guard = self.pendings.lock().unwrap_or_else(|e| e.into_inner());
+            .is_some_and(|k| sha256_hex(k) == self.dash_key_hash);
+        let guard = self.pendings.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut rows: Vec<&Pending> =
             guard.values().filter(|p| p.resolution.is_none()).collect();
         rows.sort_by_key(|p| p.created_at);
@@ -460,7 +460,7 @@ impl Gateway {
     // ---- upstream plumbing ----
 
     fn ensure_upstream(&self, server: &ServerRow) -> Result<(), GatewayError> {
-        let mut ups = self.upstreams.lock().unwrap_or_else(|e| e.into_inner());
+        let mut ups = self.upstreams.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(up) = ups.get_mut(&server.name) {
             if up.is_alive() {
                 return Ok(());
@@ -488,7 +488,7 @@ impl Gateway {
         tool: &str,
         arguments: Value,
     ) -> Result<Value, UpstreamError> {
-        let ups = self.upstreams.lock().unwrap_or_else(|e| e.into_inner());
+        let ups = self.upstreams.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let up = ups.get(server).ok_or_else(|| UpstreamError::Closed(server.to_string()))?;
         up.call_tool(tool, arguments)
     }
@@ -496,7 +496,7 @@ impl Gateway {
     /// Proxied tool list for one server, names fully qualified.
     pub fn tools_for(&self, server: &ServerRow) -> Result<Vec<Value>, GatewayError> {
         self.ensure_upstream(server)?;
-        let ups = self.upstreams.lock().unwrap_or_else(|e| e.into_inner());
+        let ups = self.upstreams.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let up = ups
             .get(&server.name)
             .ok_or_else(|| UpstreamError::Closed(server.name.clone()))?;
@@ -520,7 +520,7 @@ impl Gateway {
         if let Some(c) = server.descriptor.tool_classes.get(tool) {
             return Ok(if c == "read" { ToolClass::Read } else { ToolClass::Write });
         }
-        let ups = self.upstreams.lock().unwrap_or_else(|e| e.into_inner());
+        let ups = self.upstreams.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if let Some(up) = ups.get(&server.name) {
             if let Ok(tools) = up.tools() {
                 if let Some(t) = tools.iter().find(|t| t.name == tool) {
@@ -587,7 +587,7 @@ impl Gateway {
             created_at: unix_now(),
             resolution: None,
         };
-        self.pendings.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), pending);
+        self.pendings.lock().unwrap_or_else(std::sync::PoisonError::into_inner).insert(id.clone(), pending);
         notify::send(
             "Tidegate posture change",
             &format!(
@@ -607,7 +607,7 @@ impl Gateway {
         credential: ResolveCredential,
     ) -> Result<(), GatewayError> {
         let (agent, resource, posture_name) = {
-            let guard = self.pendings.lock().unwrap_or_else(|e| e.into_inner());
+            let guard = self.pendings.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let p = guard.get(pending_id).ok_or_else(|| {
                 GatewayError::UnknownPending(pending_id.to_string())
             })?;
@@ -643,7 +643,7 @@ impl Gateway {
         }
         self.db.set_posture(&agent.project, posture)?;
         {
-            let mut guard = self.pendings.lock().unwrap_or_else(|e| e.into_inner());
+            let mut guard = self.pendings.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             if let Some(p) = guard.get_mut(pending_id) {
                 p.resolution = Some(Answer::AllowAlways);
             }

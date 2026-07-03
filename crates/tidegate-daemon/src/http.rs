@@ -15,10 +15,14 @@ use tidegate_policy::Mutation;
 use tiny_http::{Header, Method, Response, Server};
 
 pub struct Control {
+    inner: Arc<ControlInner>,
+    server: Arc<Server>,
+    pub port: u16,
+}
+
+struct ControlInner {
     gw: Arc<Gateway>,
     dash_key: String,
-    server: Server,
-    pub port: u16,
 }
 
 impl Control {
@@ -26,37 +30,50 @@ impl Control {
         let server = Server::http("127.0.0.1:0").map_err(std::io::Error::other)?;
         let port = match server.server_addr() {
             tiny_http::ListenAddr::IP(a) => a.port(),
-            _ => 0,
+            tiny_http::ListenAddr::Unix(_) => 0,
         };
-        Ok(Control { gw, dash_key, server, port })
+        Ok(Control { inner: Arc::new(ControlInner { gw, dash_key }), server: Arc::new(server), port })
     }
 
-    /// Serve forever (call in its own thread).
+    /// Serve forever, one thread per request. Concurrency is required, not an
+    /// optimization: a `tools/call` parked on the approval condvar must not
+    /// block the `/api/approve` that releases it.
     pub fn serve(&self) {
         for mut req in self.server.incoming_requests() {
-            let method = req.method().clone();
-            let url = req.url().to_string();
-            let provided_key: Option<String> = req
-                .headers()
-                .iter()
-                .find(|h| h.field.equiv("X-Tidegate-Key"))
-                .map(|h| h.value.as_str().to_string());
-            let key_ok = provided_key
-                .map(|k| sha256_hex(&k) == sha256_hex(&self.dash_key))
-                .unwrap_or(false);
-            let mut body = String::new();
-            let _ = req.as_reader().read_to_string(&mut body);
-
-            let resp = self.route(&method, &url, key_ok, &body);
-            let _ = req.respond(resp);
+            let inner = self.inner.clone();
+            std::thread::spawn(move || {
+                let method = req.method().clone();
+                let url = req.url().to_string();
+                let provided_key: Option<String> = req
+                    .headers()
+                    .iter()
+                    .find(|h| h.field.equiv("X-Tidegate-Key"))
+                    .map(|h| h.value.as_str().to_string());
+                let key_ok = provided_key
+                    .is_some_and(|k| sha256_hex(&k) == sha256_hex(&inner.dash_key));
+                let mut body = String::new();
+                let _ = req.as_reader().read_to_string(&mut body);
+                let resp = inner.route(&method, &url, key_ok, &body);
+                let _ = req.respond(resp);
+            });
         }
     }
+}
 
+impl ControlInner {
     fn route(&self, method: &Method, url: &str, key_ok: bool, body: &str) -> Response<std::io::Cursor<Vec<u8>>> {
         let path = url.split('?').next().unwrap_or(url);
         match (method, path) {
             (Method::Get, "/") => html(DASHBOARD_HTML),
             (Method::Get, "/health") => ok_json(json!({ "ok": true, "version": env!("CARGO_PKG_VERSION") })),
+
+            // Agent MCP bridge: authenticated by the per-agent token in the
+            // body, NOT the dashboard key. This is how shim processes reach
+            // the single Gateway. (INV-D4: bad token → uniform error inside.)
+            (Method::Post, "/api/mcp") => self.api_mcp(body),
+
+            // Widening posture request enters the approval pipeline.
+            (Method::Post, "/api/posture-request") if key_ok => self.api_posture_request(body),
 
             // Read endpoints require the key (the dashboard is a trust
             // surface; its data should not be world-readable on loopback).
@@ -77,6 +94,64 @@ impl Control {
             }
             _ => err_json(404, "not found"),
         }
+    }
+
+    /// Bridge one MCP request from a shim to the shared gateway. Body:
+    /// `{ token, elicit, message }` where `message` is a JSON-RPC object.
+    fn api_mcp(&self, body: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+        let v: Value = match serde_json::from_str(body) {
+            Ok(v) => v,
+            Err(_) => return err_json(400, "bad json"),
+        };
+        let token = v.get("token").and_then(Value::as_str).unwrap_or("");
+        let elicit = v.get("elicit").and_then(Value::as_bool).unwrap_or(false);
+        let message: crate::jsonrpc::Message = match v.get("message").cloned().and_then(|m| serde_json::from_value(m).ok()) {
+            Some(m) => m,
+            None => return err_json(400, "missing message"),
+        };
+        match crate::mcp_server::handle_request(&self.gw, token, elicit, &message) {
+            Some(reply) => ok_json(json!({ "message": reply })),
+            None => ok_json(json!({ "message": Value::Null })),
+        }
+    }
+
+    fn api_posture_request(&self, body: &str) -> Response<std::io::Cursor<Vec<u8>>> {
+        let v: Value = serde_json::from_str(body).unwrap_or(json!({}));
+        let project = v.get("project").and_then(Value::as_str).unwrap_or_default();
+        let posture = v
+            .get("posture")
+            .and_then(Value::as_str)
+            .and_then(tidegate_policy::Posture::parse);
+        let (Some(posture), false) = (posture, project.is_empty()) else {
+            return err_json(400, "project and valid posture required");
+        };
+        // Posture applies to whichever agents are in the project; scope is the
+        // project-wide wildcard (mcp:*). We use a synthetic agent binding the
+        // project so the compiled grants attribute to it; per-agent posture is
+        // future work. For v0, apply to each installed agent in the project.
+        let agents = self.gw.db.list_agents().unwrap_or_default();
+        let Ok(scope) = tidegate_policy::Scope::whole_server("*") else {
+            return err_json(500, "scope");
+        };
+        let mut last_id = String::new();
+        let mut last_code = String::new();
+        for a in agents.iter().filter(|a| a.project == project) {
+            let agent = tidegate_policy::AgentKey { agent: a.agent.clone(), project: project.to_string() };
+            match self.gw.request_posture(agent, posture, scope.clone()) {
+                Ok((id, code)) => {
+                    last_id = id;
+                    last_code = code;
+                }
+                Err(e) => return err_json(500, &e.to_string()),
+            }
+        }
+        if last_id.is_empty() {
+            return err_json(400, "no agents installed in this project — run `tidegate install` first");
+        }
+        // The code is delivered via notification (sent inside request_posture);
+        // returning the id lets the CLI print the confirm line.
+        let _ = last_code;
+        ok_json(json!({ "id": last_id }))
     }
 
     fn api_state(&self) -> Response<std::io::Cursor<Vec<u8>>> {
@@ -133,10 +208,19 @@ impl Control {
     }
 }
 
+/// `Connection: close` on every response. The control plane is low-volume and
+/// per-request-threaded; forcing one request per connection sidesteps
+/// keep-alive interactions between `tiny_http` and pooled clients (ureq),
+/// which otherwise stall a pooled follow-up request mid-read.
+fn close_conn() -> Header {
+    Header::from_bytes("Connection", "close").unwrap()
+}
+
 fn ok_json(v: Value) -> Response<std::io::Cursor<Vec<u8>>> {
     let body = serde_json::to_vec(&v).unwrap_or_default();
     Response::from_data(body)
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+        .with_header(close_conn())
 }
 
 fn err_json(code: u16, msg: &str) -> Response<std::io::Cursor<Vec<u8>>> {
@@ -144,11 +228,13 @@ fn err_json(code: u16, msg: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(body)
         .with_status_code(code)
         .with_header(Header::from_bytes("Content-Type", "application/json").unwrap())
+        .with_header(close_conn())
 }
 
 fn html(s: &str) -> Response<std::io::Cursor<Vec<u8>>> {
     Response::from_data(s.as_bytes().to_vec())
         .with_header(Header::from_bytes("Content-Type", "text/html; charset=utf-8").unwrap())
+        .with_header(close_conn())
 }
 
 /// The dashboard: SLUICE-styled, self-contained, reads the key from its own

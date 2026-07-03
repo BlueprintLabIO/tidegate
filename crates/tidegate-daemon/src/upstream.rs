@@ -3,7 +3,7 @@
 //!
 //! The agent never touches these processes — that is the whole point. The
 //! upstream server itself does see the credential (it must, to call the
-//! provider); THREAT_MODEL.md is explicit that upstream servers run under
+//! provider); `THREAT_MODEL.md` is explicit that upstream servers run under
 //! the gate's trust, not the agent's.
 
 use crate::jsonrpc::{parse_line, write_message, Message, MCP_PROTOCOL_VERSION};
@@ -116,7 +116,7 @@ impl Upstream {
 
     /// Full (paginated) tools/list, cached after first success.
     pub fn tools(&self) -> Result<Vec<UpstreamTool>, UpstreamError> {
-        if let Some(cached) = self.tools.lock().unwrap_or_else(|e| e.into_inner()).clone() {
+        if let Some(cached) = self.tools.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone() {
             return Ok(cached);
         }
         let mut out = Vec::new();
@@ -151,7 +151,7 @@ impl Upstream {
                 break;
             }
         }
-        *self.tools.lock().unwrap_or_else(|e| e.into_inner()) = Some(out.clone());
+        *self.tools.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(out.clone());
         Ok(out)
     }
 
@@ -166,7 +166,7 @@ impl Upstream {
 
     fn notify(&self, method: &str, params: Value) -> Result<(), UpstreamError> {
         let msg = Message::notification(method, params);
-        let mut stdin = self.stdin.lock().unwrap_or_else(|e| e.into_inner());
+        let mut stdin = self.stdin.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         write_message(&mut *stdin, &msg).map_err(|_| UpstreamError::Closed(self.name.clone()))
     }
 
@@ -175,19 +175,19 @@ impl Upstream {
     /// client capabilities) and ignoring notifications.
     fn request(&self, method: &str, params: Value) -> Result<Value, UpstreamError> {
         let id = {
-            let mut n = self.next_id.lock().unwrap_or_else(|e| e.into_inner());
+            let mut n = self.next_id.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let id = *n;
             *n += 1;
             id
         };
         {
             let msg = Message::request(id, method, params);
-            let mut stdin = self.stdin.lock().unwrap_or_else(|e| e.into_inner());
+            let mut stdin = self.stdin.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             write_message(&mut *stdin, &msg)
                 .map_err(|_| UpstreamError::Closed(self.name.clone()))?;
         }
 
-        let incoming = self.incoming.lock().unwrap_or_else(|e| e.into_inner());
+        let incoming = self.incoming.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let deadline = Instant::now() + CALL_TIMEOUT;
         loop {
             let remaining = deadline
@@ -218,7 +218,7 @@ impl Upstream {
                     -32601,
                     "tidegate gateway: method not supported",
                 );
-                let mut stdin = self.stdin.lock().unwrap_or_else(|e| e.into_inner());
+                let mut stdin = self.stdin.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
                 let _ = write_message(&mut *stdin, &reply);
             }
             // Notifications fall through silently.

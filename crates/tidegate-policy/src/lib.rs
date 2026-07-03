@@ -24,7 +24,7 @@ pub mod scope;
 pub use scope::Scope;
 
 /// A stable identity for one agent wired into one project.
-/// Attribution, not authentication — see THREAT_MODEL.md.
+/// Attribution, not authentication — see `THREAT_MODEL.md`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AgentKey {
     /// Agent kind, e.g. "claude", "codex", "cursor".
@@ -99,7 +99,7 @@ pub struct DenyRule {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Request {
     pub agent: AgentKey,
-    /// Fully-qualified tool name, e.g. "github.create_pr".
+    /// Fully-qualified tool name, e.g. "`github.create_pr`".
     pub tool: String,
     pub class: ToolClass,
     /// The concrete resource this call touches, e.g.
@@ -122,6 +122,7 @@ pub enum Decision {
 impl Decision {
     /// Permissiveness ordering used by the monotonicity invariants:
     /// Deny(0) < Ask(1) < Allow(2).
+    #[must_use] 
     pub fn rank(&self) -> u8 {
         match self {
             Decision::Deny { .. } => 0,
@@ -153,6 +154,7 @@ pub enum Mutation {
 
 impl Mutation {
     /// The only way to obtain a grant-adding mutation.
+    #[must_use] 
     pub fn add_grant(
         id: String,
         agent: AgentKey,
@@ -168,11 +170,13 @@ impl Mutation {
     /// Removing a deny rule re-widens whatever the rule was masking, so it
     /// demands an approval event too. The event is recorded by the caller's
     /// audit log; the type signature is what enforces presence.
+    #[must_use] 
     pub fn remove_deny(deny_id: String, _approval: ApprovalEvent) -> Self {
         Mutation::RemoveDeny { deny_id }
     }
 
     /// True if applying this mutation can increase any decision's rank.
+    #[must_use] 
     pub fn is_widening(&self) -> bool {
         matches!(self, Mutation::AddGrant(_) | Mutation::RemoveDeny { .. })
     }
@@ -211,24 +215,27 @@ impl PolicyState {
 
 impl Grant {
     /// Is this grant live at `now` with uses remaining?
+    #[must_use] 
     pub fn live(&self, now: i64) -> bool {
         let unexpired = match self.expires_at {
             // INV-P3: expiry is total — the boundary instant is already dead.
             Some(t) => now < t,
             None => true,
         };
-        let has_uses = self.uses_left.map(|n| n > 0).unwrap_or(true);
+        let has_uses = self.uses_left.is_none_or(|n| n > 0);
         unexpired && has_uses
     }
 
     /// Does this grant cover the request? Class must match exactly; the
     /// requested resource must sit at or below the grant's scope (INV-P6).
+    #[must_use] 
     pub fn covers(&self, req: &Request) -> bool {
         self.agent == req.agent && self.class == req.class && self.scope.covers(&req.resource)
     }
 }
 
 impl DenyRule {
+    #[must_use] 
     pub fn covers(&self, req: &Request) -> bool {
         let tool_match = match &self.tool {
             Some(t) => t == &req.tool,
@@ -245,6 +252,7 @@ impl DenyRule {
 /// (INV-P7). Deny rules are checked before grants — an explicit "no" always
 /// beats a standing "yes". With neither, the answer is Ask, never Allow
 /// (INV-P1).
+#[must_use] 
 pub fn decide(req: &Request, state: &PolicyState, now: i64) -> Decision {
     if let Some(d) = state.denies.values().find(|d| d.covers(req)) {
         return Decision::Deny { rule_id: d.id.clone() };
@@ -267,6 +275,7 @@ pub enum Posture {
 }
 
 impl Posture {
+    #[must_use] 
     pub fn as_str(&self) -> &'static str {
         match self {
             Posture::Careful => "careful",
@@ -275,6 +284,7 @@ impl Posture {
         }
     }
 
+    #[must_use] 
     pub fn parse(s: &str) -> Option<Self> {
         match s {
             "careful" => Some(Posture::Careful),

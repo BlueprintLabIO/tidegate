@@ -6,11 +6,11 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use tidegate_vault::{KeySource, Vault, VaultError};
 
-/// TIDEGATE_MASTER_KEY_FILE is process-global; tests touching it must not
+/// `TIDEGATE_MASTER_KEY_FILE` is process-global; tests touching it must not
 /// interleave. Every test takes this lock first.
 fn env_lock() -> MutexGuard<'static, ()> {
     static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner())
+    LOCK.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 struct KeyFileGuard(PathBuf);
@@ -39,7 +39,7 @@ fn roundtrip_and_ciphertext_at_rest() {
     vault.store("github", secret).unwrap();
 
     // Round trip.
-    let got = vault.with_secret("github", |b| b.to_vec()).unwrap();
+    let got = vault.with_secret("github", <[u8]>::to_vec).unwrap();
     assert_eq!(got, secret);
 
     // INV-V1: the raw database bytes must not contain the plaintext.
@@ -65,7 +65,7 @@ fn wrong_key_cannot_decrypt() {
     let other_key = dir.path().join("other.key");
     std::env::set_var("TIDEGATE_MASTER_KEY_FILE", &other_key);
     let vault = Vault::open(dir.path()).unwrap();
-    let err = vault.with_secret("github", |b| b.to_vec()).unwrap_err();
+    let err = vault.with_secret("github", <[u8]>::to_vec).unwrap_err();
     std::env::remove_var("TIDEGATE_MASTER_KEY_FILE");
     assert!(matches!(err, VaultError::Decrypt(_)), "expected Decrypt, got {err:?}");
 }

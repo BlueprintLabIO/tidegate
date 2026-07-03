@@ -29,3 +29,30 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 [profile.release]
 lto = true
 strip = true
+
+# Lint policy: clippy pedantic on, with a curated allow-list for the
+# style-only lints (doc sections, must_use candidates) that add noise without
+# catching defects. The substantive pedantic lints stay active.
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+module_name_repetitions = "allow"
+missing_const_for_fn = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+# Intentional value-semantics APIs: grants/agents/scopes are cheap owned
+# records passed by value on purpose (they are stored, cloned, or moved).
+needless_pass_by_value = "allow"
+# The daemon is spawned deliberately detached; not wait()ing is the point.
+zombie_processes = "allow"
+# Cosmetic style choices kept for readability/consistency:
+unnecessary_wraps = "allow"   # uniform Result-returning handler signatures
+unused_self = "allow"         # methods kept instance-scoped for cohesion
+match_same_arms = "allow"     # arms kept separate for documentation value
+needless_continue = "allow"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

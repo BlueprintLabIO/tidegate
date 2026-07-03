@@ -50,6 +50,7 @@ impl Scope {
         Scope::from_segments(s.split(':'))
     }
 
+    #[must_use] 
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -60,6 +61,7 @@ impl Scope {
 
     /// Segment-wise prefix test: does `self` (a grant's scope) cover
     /// `resource` (a request's concrete path)?
+    #[must_use] 
     pub fn covers(&self, resource: &Scope) -> bool {
         let mut mine = self.segments();
         let mut theirs = resource.segments();

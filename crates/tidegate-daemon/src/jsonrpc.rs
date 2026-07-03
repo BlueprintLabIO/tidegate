@@ -26,6 +26,7 @@ pub struct Message {
 }
 
 impl Message {
+    #[must_use] 
     pub fn request(id: i64, method: &str, params: Value) -> Self {
         Message {
             jsonrpc: "2.0".into(),
@@ -37,6 +38,7 @@ impl Message {
         }
     }
 
+    #[must_use] 
     pub fn notification(method: &str, params: Value) -> Self {
         Message {
             jsonrpc: "2.0".into(),
@@ -48,6 +50,7 @@ impl Message {
         }
     }
 
+    #[must_use] 
     pub fn response(id: Value, result: Value) -> Self {
         Message {
             jsonrpc: "2.0".into(),
@@ -59,6 +62,7 @@ impl Message {
         }
     }
 
+    #[must_use] 
     pub fn error_response(id: Value, code: i64, message: &str) -> Self {
         Message {
             jsonrpc: "2.0".into(),
@@ -70,14 +74,17 @@ impl Message {
         }
     }
 
+    #[must_use] 
     pub fn is_request(&self) -> bool {
         self.method.is_some() && self.id.is_some()
     }
 
+    #[must_use] 
     pub fn is_notification(&self) -> bool {
         self.method.is_some() && self.id.is_none()
     }
 
+    #[must_use] 
     pub fn is_response(&self) -> bool {
         self.method.is_none() && self.id.is_some()
     }
@@ -90,6 +97,7 @@ pub fn write_message(w: &mut impl std::io::Write, m: &Message) -> std::io::Resul
     w.flush()
 }
 
+#[must_use] 
 pub fn parse_line(line: &str) -> Option<Message> {
     serde_json::from_str(line).ok()
 }

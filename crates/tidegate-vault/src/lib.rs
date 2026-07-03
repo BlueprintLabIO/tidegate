@@ -18,6 +18,7 @@ use aes_gcm::{Aes256Gcm, Nonce};
 use rand::RngCore;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
 const KEYRING_SERVICE: &str = "dev.tidegate.vault";
@@ -46,12 +47,14 @@ pub enum VaultError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeySource {
     OsKeychain,
-    /// TIDEGATE_MASTER_KEY_FILE — explicit, for headless machines and CI.
+    /// `TIDEGATE_MASTER_KEY_FILE` — explicit, for headless machines and CI.
     KeyFile,
 }
 
 pub struct Vault {
-    conn: Connection,
+    /// Behind a Mutex so the vault is `Sync`: the daemon shares one Gateway
+    /// (and thus one Vault) across request threads.
+    conn: Mutex<Connection>,
     /// Master key. Zeroized on drop. Never leaves this struct.
     key: Zeroizing<Vec<u8>>,
     source: KeySource,
@@ -83,7 +86,11 @@ impl Vault {
             );",
         )?;
         let (key, source) = master_key()?;
-        Ok(Vault { conn, key, source })
+        Ok(Vault { conn: Mutex::new(conn), key, source })
+    }
+
+    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     pub fn key_source(&self) -> KeySource {
@@ -95,7 +102,7 @@ impl Vault {
     pub fn store(&self, name: &str, plaintext: &[u8]) -> Result<(), VaultError> {
         let envelope = self.seal(plaintext)?;
         let now = unix_now();
-        self.conn.execute(
+        self.conn().execute(
             "INSERT INTO secrets (name, envelope, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?3)
              ON CONFLICT(name) DO UPDATE SET envelope = ?2, updated_at = ?3",
@@ -112,7 +119,7 @@ impl Vault {
         f: impl FnOnce(&[u8]) -> R,
     ) -> Result<R, VaultError> {
         let envelope: Vec<u8> = self
-            .conn
+            .conn()
             .query_row("SELECT envelope FROM secrets WHERE name = ?1", [name], |r| r.get(0))
             .map_err(|e| match e {
                 rusqlite::Error::QueryReturnedNoRows => VaultError::NotFound(name.to_string()),
@@ -123,8 +130,9 @@ impl Vault {
     }
 
     pub fn list(&self) -> Result<Vec<SecretMeta>, VaultError> {
+        let conn = self.conn();
         let mut stmt =
-            self.conn.prepare("SELECT name, created_at, updated_at FROM secrets ORDER BY name")?;
+            conn.prepare("SELECT name, created_at, updated_at FROM secrets ORDER BY name")?;
         let rows = stmt
             .query_map([], |r| {
                 Ok(SecretMeta { name: r.get(0)?, created_at: r.get(1)?, updated_at: r.get(2)? })
@@ -134,13 +142,13 @@ impl Vault {
     }
 
     pub fn delete(&self, name: &str) -> Result<bool, VaultError> {
-        let n = self.conn.execute("DELETE FROM secrets WHERE name = ?1", [name])?;
+        let n = self.conn().execute("DELETE FROM secrets WHERE name = ?1", [name])?;
         Ok(n > 0)
     }
 
     pub fn contains(&self, name: &str) -> Result<bool, VaultError> {
         let n: i64 = self
-            .conn
+            .conn()
             .query_row("SELECT COUNT(*) FROM secrets WHERE name = ?1", [name], |r| r.get(0))?;
         Ok(n > 0)
     }
@@ -185,7 +193,7 @@ pub struct SecretMeta {
 }
 
 /// Fetch-or-create the master key. Keychain first; explicit key-file mode
-/// only when TIDEGATE_MASTER_KEY_FILE is set (headless/CI — degraded and
+/// only when `TIDEGATE_MASTER_KEY_FILE` is set (headless/CI — degraded and
 /// documented, never a silent fallback).
 fn master_key() -> Result<(Zeroizing<Vec<u8>>, KeySource), VaultError> {
     if let Ok(path) = std::env::var("TIDEGATE_MASTER_KEY_FILE") {

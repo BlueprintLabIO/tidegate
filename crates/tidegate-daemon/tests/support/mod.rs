@@ -74,7 +74,7 @@ pub fn build(mock_token: &str) -> Harness {
                 arg: "repo".into(),
                 template: "mock:repo:{}".into(),
             }],
-            tool_classes: Default::default(),
+            tool_classes: std::collections::BTreeMap::default(),
         },
     })
     .unwrap();
