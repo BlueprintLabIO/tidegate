@@ -1,4 +1,7 @@
 //! Shared test scaffolding: a mock upstream MCP server and gateway builders.
+//! Each test binary (`gateway`, `proxy`) uses a different subset, so unused
+//! items here are expected.
+#![allow(dead_code)]
 
 use std::io::Write;
 use std::path::Path;
@@ -50,6 +53,11 @@ pub fn agent(name: &str, project: &str) -> AgentKey {
 }
 
 pub fn build(mock_token: &str) -> Harness {
+    use std::sync::{Mutex, OnceLock};
+    // TIDEGATE_MASTER_KEY_FILE is process-global; serialize set-var + vault open
+    // so parallel tests don't read each other's key path.
+    static ENV: OnceLock<Mutex<()>> = OnceLock::new();
+    let _guard = ENV.get_or_init(|| Mutex::new(())).lock().unwrap_or_else(|e| e.into_inner());
     let dir = tempfile::tempdir().unwrap();
     write_key_file(dir.path());
     let script = dir.path().join("mock_server.py");

@@ -73,6 +73,12 @@ code, and we do not claim otherwise.
   is the limit. Token-side narrowing (GitHub App installation tokens minted
   per repo) is the planned mitigation and the reason it is on the roadmap
   rather than in the marketing.
+- **Proxy routing cooperation.** The HTTP broker proxy gates a client that
+  routes through it (base-URL override / proxy env). An agent that opens raw
+  sockets to the provider bypasses the proxy entirely — the same boundary as
+  the tool channel above: we defend sanctioned traffic, not a determined
+  process on your machine. The proxy binds loopback only and authenticates the
+  agent by a per-(agent, project) path token minted at install.
 - **Denial of service by the agent against the daemon.** An agent can spam
   calls; rate limiting is a robustness concern, not a security boundary.
 

@@ -1252,6 +1252,7 @@ dependencies = [
  "tidegate-policy",
  "tidegate-vault",
  "tiny_http",
+ "ureq",
 ]
 
 [[package]]

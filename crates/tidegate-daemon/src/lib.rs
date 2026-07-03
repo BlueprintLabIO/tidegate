@@ -22,6 +22,7 @@ pub mod http;
 pub mod jsonrpc;
 pub mod mcp_server;
 pub mod notify;
+pub mod proxy;
 pub mod sock;
 pub mod state;
 pub mod upstream;
@@ -60,6 +61,9 @@ impl Paths {
     #[must_use] 
     pub fn control_sock(&self) -> PathBuf {
         self.home.join("control.sock")
+    }
+    pub fn proxy_port_file(&self) -> PathBuf {
+        self.home.join("proxy.port")
     }
 }
 

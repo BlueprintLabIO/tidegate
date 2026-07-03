@@ -21,19 +21,31 @@ $ tidegate dashboard
 - **Keys stay home.** Credentials live in an encrypted vault on your disk, the
   master key in your OS keychain. Agents call tools through the gate; the raw
   token never enters an agent's context or a model's transcript. The gate
-  injects it only into the upstream service process, at the moment of the call.
-- **Ask before write.** Reads settle after you approve them once; writes wait
-  for a one-click approval. You decide per novel action, and the gate
-  remembers. Deny-by-default, remembered as policy — no config files.
-- **Receipts for everything.** Every call, verdict, approval, and revocation is
-  appended to a hash-chained audit log. One dashboard, one revoke button, every
-  agent.
+  injects it only at the moment of the call.
+- **Ask before write — and the prompt says exactly what.** Reads settle after
+  you approve them once; writes wait for a one-click approval that names the
+  agent, the tool, and the resource (not a vague "something wants access"). You
+  decide per novel action, and the gate remembers. Deny-by-default, no config
+  files. Approval works headless — a confirmation code over a notification, not
+  a fingerprint you have to be at your desk for.
+- **Tamper-evident receipts.** Every call, verdict, approval, and revocation is
+  appended to a **hash-chained** audit log — mutating the middle breaks the
+  chain visibly. One dashboard, one revoke button, every agent.
 
-## Any MCP server, and the wedge
+## What it gates
 
-GitHub is built in. Any other MCP server can be connected generically today and
-given a richer scoping descriptor when someone writes one — provider specifics
-are declarative data, not gateway code. See [`docs/`](docs/) and the
+- **Any MCP server.** GitHub is built in; any other MCP server connects
+  generically today and gets richer per-resource scoping via a declarative
+  descriptor — provider specifics are data, not gateway code.
+- **Any HTTP API**, through the built-in **broker proxy**: point your client's
+  base URL at the gate, and it injects the credential and gates the call
+  per-path. A catalog of API-key services (GitHub REST, OpenAI, Anthropic,
+  Stripe, Linear, Notion, Slack, Vercel, Cloudflare, …) ships built in; any
+  REST endpoint works via `TIDEGATE_HTTP_BASE_URL`.
+- **Clients:** Claude Code, Codex, Cursor (`tidegate install claude codex cursor`).
+
+The MCP spec itself says stdio servers should take credentials from the
+environment — which is exactly what the gate does. See [`docs/`](docs/) and the
 [threat model](THREAT_MODEL.md).
 
 ## Install

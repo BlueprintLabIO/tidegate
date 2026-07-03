@@ -19,6 +19,20 @@ const KNOWN_AGENTS: &[&str] = &["claude", "codex", "cursor"];
 pub fn connect(service: &str, secret_env: Option<String>) -> Result<()> {
     let p = app::paths()?;
     let vault = open_vault(&p)?;
+
+    // HTTP API providers (the broker proxy) take priority: these are gated as
+    // REST calls, not MCP servers. A built-in preset, or any REST API via
+    // TIDEGATE_HTTP_BASE_URL (+ optional TIDEGATE_HTTP_AUTH_HEADER/SCHEME).
+    if let Some(hp) = providers::http_builtin(service) {
+        return connect_http(&p, &vault, hp, secret_env);
+    }
+    if let Ok(base_url) = std::env::var("TIDEGATE_HTTP_BASE_URL") {
+        let header = std::env::var("TIDEGATE_HTTP_AUTH_HEADER").unwrap_or_else(|_| "Authorization".into());
+        let scheme = std::env::var("TIDEGATE_HTTP_AUTH_SCHEME").unwrap_or_else(|_| "Bearer ".into());
+        let hp = providers::http_generic(service, base_url, header, scheme);
+        return connect_http(&p, &vault, hp, secret_env);
+    }
+
     // Built-in (github) or a custom MCP server described by env vars:
     //   TIDEGATE_MCP_COMMAND (required for custom), TIDEGATE_MCP_ARGS (space
     //   separated), TIDEGATE_MCP_ENV (the env var name to inject the secret
@@ -26,8 +40,9 @@ pub fn connect(service: &str, secret_env: Option<String>) -> Result<()> {
     let provider = if let Some(p) = providers::builtin(service) { p } else {
         let command = std::env::var("TIDEGATE_MCP_COMMAND").map_err(|_| {
             app::msg(format!(
-                "no built-in provider {service:?}. To connect a custom MCP server, set \
-                 TIDEGATE_MCP_COMMAND (and optionally TIDEGATE_MCP_ARGS, TIDEGATE_MCP_ENV)."
+                "no built-in provider {service:?}.\n  HTTP APIs available: {}.\n  For a custom MCP \
+                 server, set TIDEGATE_MCP_COMMAND (and optionally TIDEGATE_MCP_ARGS, TIDEGATE_MCP_ENV).",
+                providers::http_catalog().join(", ")
             ))
         })?;
         let args = std::env::var("TIDEGATE_MCP_ARGS")
@@ -77,6 +92,52 @@ pub fn connect(service: &str, secret_env: Option<String>) -> Result<()> {
     Ok(())
 }
 
+/// Connect an HTTP API provider: store its credential and register it for the
+/// broker proxy.
+fn connect_http(
+    p: &Paths,
+    vault: &Vault,
+    hp: providers::HttpProvider,
+    secret_env: Option<String>,
+) -> Result<()> {
+    println!("Connecting {} (HTTP API).", hp.row.name);
+    println!("  {}", hp.about);
+
+    let secret = if let Some(var) = secret_env {
+        std::env::var(&var).map_err(|_| app::msg(format!("env var {var} is not set")))?
+    } else {
+        println!("  Paste {}.", hp.credential_hint);
+        print!("  token (hidden): ");
+        std::io::stdout().flush().ok();
+        rpassword::read_password().map_err(|e| app::msg(e.to_string()))?
+    };
+    let secret = secret.trim().to_string();
+    if secret.is_empty() {
+        return Err(app::msg("empty token — nothing stored"));
+    }
+    vault.store(&hp.row.secret_name, secret.as_bytes()).map_err(|e| app::msg(e.to_string()))?;
+
+    let db = open_db(p)?;
+    db.upsert_http_provider(&hp.row).map_err(|e| app::msg(e.to_string()))?;
+
+    let where_key = match vault.key_source() {
+        KeySource::OsKeychain => "your OS keychain",
+        KeySource::KeyFile => "a key file (TIDEGATE_MASTER_KEY_FILE)",
+    };
+    println!("\n  ✔ {} → vault", hp.row.name);
+    println!("    encrypted at rest · master key in {where_key} · never leaves this machine");
+    println!(
+        "    The gate injects it into the {} header on every proxied call.",
+        hp.row.auth_header
+    );
+    println!(
+        "\n  Point your client's base URL for {} at the gate, then `tidegate install <agent>`.",
+        hp.row.name
+    );
+    println!("  Run `tidegate status` to see the proxy base URL after an agent is installed.");
+    Ok(())
+}
+
 // ---- install ----
 
 pub fn install(agents: &[String], project: Option<String>, posture: &str) -> Result<()> {
@@ -90,6 +151,7 @@ pub fn install(agents: &[String], project: Option<String>, posture: &str) -> Res
     let db = open_db(&p)?;
     let exe = std::env::current_exe()?;
 
+    let mut installed: Vec<(String, String)> = Vec::new(); // (agent, token)
     for agent in agents {
         if !KNOWN_AGENTS.contains(&agent.as_str()) {
             println!("  ! {agent}: not a known agent (known: {}). Skipping.", KNOWN_AGENTS.join(", "));
@@ -103,6 +165,32 @@ pub fn install(agents: &[String], project: Option<String>, posture: &str) -> Res
         // Write the agent's project MCP config to launch our shim.
         agentcfg::wire(agent, &project, &exe, &token)?;
         println!("  ✔ {agent} wired for {project}");
+        installed.push((agent.clone(), token));
+    }
+
+    // If any HTTP API providers are connected, print the per-agent proxy base
+    // URLs the agent's SDK should target. This is the broker-proxy handoff.
+    let http_providers = db.list_http_providers().unwrap_or_default();
+    if !http_providers.is_empty() && !installed.is_empty() {
+        // Bring the gate up so we can print real proxy URLs now.
+        let _ = app::ensure_daemon();
+        let port = proxy_port(&p);
+        println!("\n  HTTP APIs (point your client's base URL at the gate):");
+        for (agent, token) in &installed {
+            for hp in &http_providers {
+                match port {
+                    Some(port) => println!(
+                        "    {agent} · {}: http://127.0.0.1:{port}/p/{token}/{}/",
+                        hp.name, hp.name
+                    ),
+                    None => println!(
+                        "    {agent} · {}: start the gate (`tidegate status`) to see the URL",
+                        hp.name
+                    ),
+                }
+            }
+        }
+        println!("    The gate injects the credential; your client sends none.");
     }
 
     // Persist the project posture. Careful/Standard need no human event to
@@ -283,9 +371,21 @@ pub fn status() -> Result<()> {
     }
     let db = open_db(&p)?;
     println!("  agents: {}", db.list_agents().map_err(|e| app::msg(e.to_string()))?.len());
-    println!("  servers: {}", db.list_servers().map_err(|e| app::msg(e.to_string()))?.len());
+    println!("  MCP servers: {}", db.list_servers().map_err(|e| app::msg(e.to_string()))?.len());
+    let http = db.list_http_providers().map_err(|e| app::msg(e.to_string()))?;
+    println!("  HTTP APIs: {}", http.len());
+    if let Some(port) = proxy_port(&p) {
+        if !http.is_empty() {
+            println!("  proxy: http://127.0.0.1:{port}/p/<agent-token>/<service>/");
+        }
+    }
     println!("  receipts: {}", db.receipts(None).map_err(|e| app::msg(e.to_string()))?.len());
     Ok(())
+}
+
+/// The running daemon's proxy port, if any.
+fn proxy_port(p: &Paths) -> Option<u16> {
+    std::fs::read_to_string(p.proxy_port_file()).ok().and_then(|s| s.trim().parse().ok())
 }
 
 // ---- daemon ----
@@ -360,18 +460,22 @@ pub fn run_daemon() -> Result<()> {
     let gw = Arc::new(
         Gateway::new(db, vault, &dash_key).map_err(|e| app::msg(e.to_string()))?,
     );
-    // Two faces on one Gateway: a Unix socket for local IPC (shims + CLI),
-    // and HTTP for the browser dashboard.
+    // Three faces on one Gateway: a Unix socket for local IPC (shims + CLI),
+    // HTTP for the browser dashboard, and the broker proxy for HTTP APIs.
     let control = tidegate_daemon::http::Control::bind(gw.clone(), dash_key.clone())?;
     std::fs::write(p.control_port_file(), control.port.to_string())?;
     let sock = tidegate_daemon::sock::SockServer::bind(gw.clone(), &p.control_sock())?;
+    let proxy = tidegate_daemon::proxy::ProxyServer::bind(gw.clone())?;
+    std::fs::write(p.proxy_port_file(), proxy.port.to_string())?;
     eprintln!(
-        "tidegate daemon: socket {} · dashboard 127.0.0.1:{}",
+        "tidegate daemon: socket {} · dashboard 127.0.0.1:{} · proxy 127.0.0.1:{}",
         p.control_sock().display(),
-        control.port
+        control.port,
+        proxy.port
     );
-    // Socket server on a background thread; HTTP on this one. Both loop forever.
+    // Socket + proxy on background threads; HTTP dashboard on this one.
     std::thread::spawn(move || sock.serve());
+    std::thread::spawn(move || proxy.serve());
     control.serve();
     Ok(())
 }

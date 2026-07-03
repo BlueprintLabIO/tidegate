@@ -59,6 +59,41 @@ pub struct Scoper {
     pub template: String,
 }
 
+/// An HTTP API provider gated through the broker proxy. Declarative, the same
+/// "Nango lesson": a provider is data — where to send the call, which vault
+/// secret to inject as which header, and how to derive a resource scope from
+/// the request path. (Schema referenced from Nango's `providers.yaml`; the
+/// data is our own — Nango's file is ELv2, not bundled.)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HttpProviderRow {
+    pub name: String,
+    /// Upstream base, e.g. "<https://api.github.com>". No trailing slash.
+    pub base_url: String,
+    /// Header the credential is injected into, e.g. "Authorization".
+    pub auth_header: String,
+    /// Scheme prefix before the secret, e.g. "Bearer " or "token " or "" (raw).
+    #[serde(default)]
+    pub auth_scheme: String,
+    /// Vault secret name holding the credential.
+    pub secret_name: String,
+    /// Path scopers: first whose `prefix` matches the request path yields a
+    /// resource scope via `template` with {1},{2}... = path segments after the
+    /// prefix. Empty → whole-service scope `api:<name>`.
+    #[serde(default)]
+    pub path_scopers: Vec<PathScoper>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PathScoper {
+    /// Leading path segments that must match, e.g. "repos".
+    pub prefix: String,
+    /// Scope template; {1},{2} = the next path segments. e.g.
+    /// "github:repo:{1}/{2}" for /repos/{owner}/{repo}/...
+    pub template: String,
+    /// How many segments after the prefix the template consumes.
+    pub segments: usize,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Receipt {
     pub seq: i64,
@@ -89,6 +124,10 @@ impl Db {
                 UNIQUE(agent, project)
             );
             CREATE TABLE IF NOT EXISTS servers (
+                name TEXT PRIMARY KEY,
+                config TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS http_providers (
                 name TEXT PRIMARY KEY,
                 config TEXT NOT NULL
             );
@@ -196,6 +235,45 @@ impl Db {
     pub fn list_servers(&self) -> Result<Vec<ServerRow>, StateError> {
         let conn = self.conn();
         let mut stmt = conn.prepare("SELECT config FROM servers ORDER BY name")?;
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<Result<Vec<String>, _>>()?;
+        rows.into_iter()
+            .map(|c| serde_json::from_str(&c).map_err(|e| StateError::Corrupt(e.to_string())))
+            .collect()
+    }
+
+    // ---- http providers ----
+
+    pub fn upsert_http_provider(&self, row: &HttpProviderRow) -> Result<(), StateError> {
+        let config = serde_json::to_string(row).map_err(|e| StateError::Corrupt(e.to_string()))?;
+        self.conn().execute(
+            "INSERT INTO http_providers (name, config) VALUES (?1, ?2)
+             ON CONFLICT(name) DO UPDATE SET config = ?2",
+            params![row.name, config],
+        )?;
+        Ok(())
+    }
+
+    pub fn http_provider(&self, name: &str) -> Result<Option<HttpProviderRow>, StateError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare("SELECT config FROM http_providers WHERE name = ?1")?;
+        let mut rows = stmt.query([name])?;
+        match rows.next()? {
+            Some(r) => {
+                let config: String = r.get(0)?;
+                Ok(Some(
+                    serde_json::from_str(&config)
+                        .map_err(|e| StateError::Corrupt(e.to_string()))?,
+                ))
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub fn list_http_providers(&self) -> Result<Vec<HttpProviderRow>, StateError> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare("SELECT config FROM http_providers ORDER BY name")?;
         let rows = stmt
             .query_map([], |r| r.get::<_, String>(0))?
             .collect::<Result<Vec<String>, _>>()?;

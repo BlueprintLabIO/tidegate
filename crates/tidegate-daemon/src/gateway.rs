@@ -51,6 +51,27 @@ pub enum CallOutcome {
     },
 }
 
+/// One proxied HTTP request, reduced to what the gateway needs.
+pub struct ProxyRequest<'a> {
+    pub method: &'a str,
+    pub path: &'a str,
+    pub query: Option<&'a str>,
+    pub body: &'a [u8],
+    pub content_type: Option<&'a str>,
+}
+
+/// Outcome of one proxied HTTP call — the same three terminal shapes as
+/// [`CallOutcome`], expressed for the HTTP transport.
+#[derive(Debug)]
+pub enum ProxyOutcome {
+    /// Upstream response, passed back to the agent.
+    Allowed { status: u16, content_type: String, body: Vec<u8>, receipt_id: String },
+    /// Denied by policy — the proxy returns this as a 403 JSON body.
+    Denied { reason: String, receipt_id: String },
+    /// Ask — the proxy returns a 428 JSON body the model can act on.
+    Pending { id: String, message_for_model: String },
+}
+
 /// How a resolver proves human presence.
 pub enum ResolveCredential {
     /// Confirmation code that traveled a human channel (notification,
@@ -225,6 +246,174 @@ impl Gateway {
             }
             Decision::Ask => self.create_pending(agent, tool_fq, class, resource, elicit_ok, wait),
         }
+    }
+
+    /// Gate one proxied HTTP call. Same policy/receipt/approval core as
+    /// [`Self::handle_call`], expressed for the HTTP transport: the resource
+    /// scope comes from the request path, the class from the HTTP method
+    /// (safe methods = read), and on Allow the credential is injected into the
+    /// configured header and the request forwarded upstream.
+    pub fn handle_proxy(
+        &self,
+        agent: AgentKey,
+        provider: &crate::state::HttpProviderRow,
+        req: &ProxyRequest<'_>,
+        wait: Duration,
+    ) -> Result<ProxyOutcome, GatewayError> {
+        let method = req.method;
+        let class = if matches!(method, "GET" | "HEAD" | "OPTIONS") {
+            ToolClass::Read
+        } else {
+            ToolClass::Write
+        };
+        let resource = self.proxy_resource(provider, req.path)?;
+        let tool_fq = format!("{}.{method}", provider.name);
+        let preq = tidegate_policy::Request {
+            agent: agent.clone(),
+            tool: tool_fq.clone(),
+            class,
+            resource: resource.clone(),
+        };
+        let decision = { decide(&preq, &self.lock_policy(), unix_now()) };
+
+        match decision {
+            Decision::Allow { grant_id } => {
+                let receipt_id = random_id("rcp");
+                let started = unix_now();
+                let result = self.forward_http(provider, req);
+                let ok = result.is_ok();
+                self.db.append_receipt(
+                    &receipt_id,
+                    started,
+                    "call",
+                    &agent.agent,
+                    &agent.project,
+                    &json!({
+                        "tool": tool_fq, "resource": resource.as_str(),
+                        "verdict": "allow", "grant": grant_id, "ok": ok, "transport": "http",
+                    }),
+                )?;
+                let consume = {
+                    let p = self.lock_policy();
+                    p.grants.get(&grant_id).and_then(|g| g.uses_left).is_some()
+                };
+                if consume {
+                    self.mutate(Mutation::ConsumeUse { grant_id })?;
+                }
+                match result {
+                    Ok((status, ct, body)) => {
+                        Ok(ProxyOutcome::Allowed { status, content_type: ct, body, receipt_id })
+                    }
+                    Err(e) => Ok(ProxyOutcome::Denied {
+                        reason: format!("upstream error: {e}"),
+                        receipt_id,
+                    }),
+                }
+            }
+            Decision::Deny { rule_id } => {
+                let receipt_id = random_id("rcp");
+                self.db.append_receipt(
+                    &receipt_id,
+                    unix_now(),
+                    "deny",
+                    &agent.agent,
+                    &agent.project,
+                    &json!({ "tool": tool_fq, "resource": resource.as_str(), "verdict": "deny", "rule": rule_id, "transport": "http" }),
+                )?;
+                Ok(ProxyOutcome::Denied {
+                    reason: format!("denied by standing rule for {tool_fq} on {}", resource.as_str()),
+                    receipt_id,
+                })
+            }
+            Decision::Ask => {
+                match self.create_pending(agent, &tool_fq, class, resource.clone(), false, wait)? {
+                    CallOutcome::Allowed { .. } | CallOutcome::Denied { .. } => {
+                        // Resolved during the short wait as allow → retry flows;
+                        // as deny → denied. Re-evaluate by asking again is
+                        // simplest: the caller (agent) retries the HTTP request.
+                        Ok(ProxyOutcome::Pending {
+                            id: String::new(),
+                            message_for_model: "resolved — retry the request".into(),
+                        })
+                    }
+                    CallOutcome::Pending { id, message_for_model, .. } => {
+                        Ok(ProxyOutcome::Pending { id, message_for_model })
+                    }
+                }
+            }
+        }
+    }
+
+    /// Derive the resource scope for a proxied path via the provider's path
+    /// scopers; falls back to the whole-service scope `api:<name>`.
+    fn proxy_resource(
+        &self,
+        provider: &crate::state::HttpProviderRow,
+        path: &str,
+    ) -> Result<Scope, GatewayError> {
+        let segs: Vec<&str> = path.trim_matches('/').split('/').filter(|s| !s.is_empty()).collect();
+        for sc in &provider.path_scopers {
+            if segs.first() == Some(&sc.prefix.as_str()) && segs.len() > sc.segments {
+                let mut out = sc.template.clone();
+                for i in 1..=sc.segments {
+                    let seg = segs.get(i).copied().unwrap_or("");
+                    if seg.contains(':') {
+                        return Err(GatewayError::BadScope(seg.to_string()));
+                    }
+                    out = out.replace(&format!("{{{i}}}"), seg);
+                }
+                return Scope::parse(&out).map_err(|e| GatewayError::BadScope(e.to_string()));
+            }
+        }
+        Scope::from_segments(["api", &provider.name])
+            .map_err(|e| GatewayError::BadScope(e.to_string()))
+    }
+
+    /// Inject the credential and forward the request upstream. Returns
+    /// (status, content-type, body). The credential is read from the vault
+    /// for exactly this call and never leaves this function.
+    fn forward_http(
+        &self,
+        provider: &crate::state::HttpProviderRow,
+        req: &ProxyRequest<'_>,
+    ) -> Result<(u16, String, Vec<u8>), UpstreamError> {
+        let base = provider.base_url.trim_end_matches('/');
+        let p = req.path.trim_start_matches('/');
+        let url = match req.query {
+            Some(q) if !q.is_empty() => format!("{base}/{p}?{q}"),
+            _ => format!("{base}/{p}"),
+        };
+        let header_value = self
+            .vault
+            .with_secret(&provider.secret_name, |b| {
+                format!("{}{}", provider.auth_scheme, String::from_utf8_lossy(b))
+            })
+            .map_err(|e| UpstreamError::Protocol(provider.name.clone(), e.to_string()))?;
+
+        let mut ur = ureq::request(req.method, &url)
+            .set(&provider.auth_header, &header_value)
+            .set("Accept", "application/json");
+        if let Some(ct) = req.content_type {
+            ur = ur.set("Content-Type", ct);
+        }
+        let resp = if req.body.is_empty() {
+            ur.call()
+        } else {
+            ur.send_bytes(req.body)
+        };
+        // ureq treats non-2xx as Err(Status); we pass those back to the agent
+        // verbatim rather than masking them.
+        let response = match resp {
+            Ok(r) => r,
+            Err(ureq::Error::Status(_, r)) => r,
+            Err(e) => return Err(UpstreamError::Protocol(provider.name.clone(), e.to_string())),
+        };
+        let status = response.status();
+        let ct = response.header("Content-Type").unwrap_or("application/json").to_string();
+        let mut buf = Vec::new();
+        std::io::Read::read_to_end(&mut response.into_reader(), &mut buf)
+            .map_err(|e| UpstreamError::Protocol(provider.name.clone(), e.to_string()))?;
+        Ok((status, ct, buf))
     }
 
     fn create_pending(
