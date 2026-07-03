@@ -6,5 +6,5 @@ crates/tidegate/tests/e2e.rs:
 Cargo.toml:
 
 # env-dep:CARGO_BIN_EXE_tidegate=placeholder:tidegate
-# env-dep:CLIPPY_ARGS=
+# env-dep:CLIPPY_ARGS=-D__CLIPPY_HACKERY__warnings__CLIPPY_HACKERY__
 # env-dep:CLIPPY_CONF_DIR
