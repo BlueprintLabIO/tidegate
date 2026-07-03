@@ -42,6 +42,7 @@ const jsonLd = JSON.stringify({
       <span class="brand__word sl-display">Tidegate</span>
     </a>
     <span class="topbar__tag sl-label">local permissions gate for coding agents</span>
+    <a class="topbar__docs sl-label" href="/docs">Docs</a>
     <a class="sl-btn" href="https://github.com/BlueprintLabIO/tidegate">GitHub&nbsp;↗</a>
   </header>
 
@@ -126,6 +127,8 @@ const jsonLd = JSON.stringify({
           </div>
         </div>
 
+        <div class="channel__down sl-mono" aria-hidden="true">↓</div>
+
         <div class="channel__gate">
           <span class="channel__gatehead sl-label">tidegate</span>
           <div class="channel__gatebody">
@@ -133,6 +136,8 @@ const jsonLd = JSON.stringify({
             <span class="sl-chip sl-chip--gate">no tokens beyond this point</span>
           </div>
         </div>
+
+        <div class="channel__down sl-mono" aria-hidden="true">↓</div>
 
         <div class="channel__side channel__side--b">
           <span class="sl-label channel__cap">github</span>
@@ -203,6 +208,7 @@ const jsonLd = JSON.stringify({
   <footer class="footer">
     <span class="sl-mono">Tidegate — MIT or Apache-2.0</span>
     <nav class="footer__links sl-mono">
+      <a href="/docs">Docs</a>
       <a href="https://github.com/BlueprintLabIO/tidegate">GitHub</a>
       <a href="https://github.com/BlueprintLabIO/tidegate#threat-model">Threat model</a>
       <a href="https://tidebase.dev">Tidebase</a>
@@ -264,7 +270,13 @@ const jsonLd = JSON.stringify({
   .brand__glyph svg { display: block; }
   .brand__word { font-size: 20px; }
   .topbar__tag { color: var(--ink-faint); }
-  .topbar > .sl-btn { margin-left: auto; }
+  .topbar__docs {
+    margin-left: auto;
+    text-decoration: none;
+    border-bottom: 2px solid var(--gate);
+    padding-bottom: 2px;
+  }
+  .topbar__docs:hover { color: var(--tide); border-bottom-color: var(--tide); }
 
   /* ---------- hero ---------- */
   .hero { padding: 76px 0 14px; }
@@ -292,7 +304,11 @@ const jsonLd = JSON.stringify({
   .hero__sub { max-width: 44ch; font-size: 18px; color: var(--ink-soft); }
   .hero__sub strong { color: var(--ink); }
   .hero__term { min-width: 0; position: relative; z-index: 2; align-self: end; }
-  .hero__term .sl-term { margin-bottom: -38px; }
+  .hero__term .sl-term {
+    margin-bottom: -38px;
+    /* solid extrude: fill the offset-shadow notch so the gauge can't peek through */
+    box-shadow: 8px 8px 0 var(--ink), 8px 0 0 var(--ink), 0 8px 0 var(--ink);
+  }
 
   .hero__install { display: flex; flex-direction: column; }
   .install__label { margin-bottom: 10px; color: var(--ink-faint); }
@@ -321,6 +337,7 @@ const jsonLd = JSON.stringify({
     gap: 48px;
     align-items: center;
   }
+  .channel__down { display: none; }
   .channel__side { display: flex; flex-direction: column; gap: 14px; }
   .channel__side--a { transform: translateY(-78px); }
   .channel__side--b { transform: translateY(78px); align-items: flex-end; text-align: right; }
@@ -407,11 +424,39 @@ const jsonLd = JSON.stringify({
     .topbar__tag { display: none; }
   }
   @media (max-width: 860px) {
-    .channel { padding: 64px 0; }
+    .channel { padding: 56px 0; }
     .channel::before { display: none; }
-    .channel__grid { grid-template-columns: 1fr; gap: 28px; }
+    /* vertical channel: a tide-gauge spine on the left, flow runs downward */
+    .channel__grid {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding-left: 40px;
+    }
+    .channel__grid::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 2px;
+      bottom: 2px;
+      width: 15px;
+      border: var(--bw-thin) solid var(--ink);
+      background:
+        repeating-linear-gradient(0deg, transparent 0 24px, rgba(241, 239, 229, 0.85) 24px 27px),
+        linear-gradient(to right, var(--ink) 0 55%, var(--tide) 55% 100%);
+    }
     .channel__side--a, .channel__side--b { transform: none; }
     .channel__side--b { align-items: flex-start; text-align: left; }
+    .channel__names { flex-direction: row; flex-wrap: wrap; gap: 6px 20px; }
+    .channel__gate { min-width: 0; align-self: flex-start; }
+    .channel__down {
+      display: block;
+      color: var(--gate);
+      font-weight: 800;
+      font-size: 20px;
+      padding: 14px 0 14px 6px;
+    }
     .fact { grid-template-columns: 1fr; gap: 14px; padding: 30px 0; }
     .fact__num { font-size: 34px; }
     .fact__receipt { transform: none; }

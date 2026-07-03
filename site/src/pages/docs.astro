@@ -1,0 +1,340 @@
+---
+import Base from '../layouts/Base.astro'
+
+const title = 'Tidegate docs — quickstart, how it works, commands'
+const description =
+  'Install Tidegate, connect GitHub once, wire your coding agents, and understand the vault, policy engine, and audit receipts underneath.'
+
+const toc = [
+  { id: 'quickstart', label: 'Quickstart' },
+  { id: 'how-it-works', label: 'How it works' },
+  { id: 'commands', label: 'Commands' },
+  { id: 'permissions', label: 'Permissions' },
+  { id: 'security', label: 'Security model' },
+  { id: 'status', label: 'Status' },
+]
+
+const commands = [
+  { cmd: 'tidegate connect <service>', desc: 'Add a credential to the vault. GitHub first; paste a fine-grained PAT once and it is encrypted at rest.' },
+  { cmd: 'tidegate install <agent…>', desc: 'Wire agents to the gate — claude, codex, cursor. Writes their MCP config and mints a per-agent identity token.' },
+  { cmd: 'tidegate allow <agent> <tool> [scope]', desc: 'Pre-approve a tool for an agent without waiting for the first-use prompt.' },
+  { cmd: 'tidegate revoke <agent | grant>', desc: 'Cut access now. Applies to the next call — no restart, no config edit.' },
+  { cmd: 'tidegate audit', desc: 'Print the receipt log: every call, every verdict, hash-chained.' },
+  { cmd: 'tidegate dashboard', desc: 'Open the local web dashboard: connections, agents, policies, receipts, revoke buttons.' },
+]
+---
+
+<Base title={title} description={description} path="/docs">
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand__glyph">
+        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+          <rect width="32" height="32" fill="#ff5a47"></rect>
+          <path d="M6 27V12a10 10 0 0 1 20 0v15" fill="none" stroke="#0f2233" stroke-width="3"></path>
+          <path d="M11.5 27V10.5M16 27V7M20.5 27V10.5" fill="none" stroke="#0f2233" stroke-width="3"></path>
+          <path d="M3 27h26" stroke="#0f2233" stroke-width="3"></path>
+        </svg>
+      </span>
+      <span class="brand__word sl-display">Tidegate</span>
+    </a>
+    <span class="topbar__tag sl-label">docs</span>
+    <a class="sl-btn" href="https://github.com/BlueprintLabIO/tidegate">GitHub&nbsp;↗</a>
+  </header>
+
+  <main class="docs">
+    <aside class="toc">
+      <span class="sl-label toc__cap">On this page</span>
+      <nav class="toc__nav sl-mono">
+        {toc.map((t) => <a href={`#${t.id}`}>{t.label}</a>)}
+      </nav>
+    </aside>
+
+    <div class="content">
+      <h1 class="sl-display">How the gate works.</h1>
+      <p class="lede">
+        Tidegate is a local permissions gate for AI coding agents: one encrypted
+        vault, one policy engine, one audit log — between every agent on your
+        machine and the credentials they want.
+      </p>
+      <p class="callout sl-mono">
+        v0 · under construction — this page documents the shipping interface.
+        Commands may not work yet; when they do, they will work exactly like this.
+      </p>
+
+      <section id="quickstart">
+        <span class="sl-label kicker">01</span>
+        <h2 class="sl-display">Quickstart</h2>
+        <p>Four commands from zero to gated agents:</p>
+
+        <div class="sl-cmd" data-copy="npm install -g tidegate" title="Click to copy">
+          <span class="p">$</span><span>npm install -g tidegate</span>
+          <span class="sl-cmd__copy">copy</span>
+        </div>
+        <p class="step-note">Also via pnpm, yarn, brew, or curl — see the <a href="/">landing page</a>.</p>
+
+        <div class="sl-cmd" data-copy="tidegate connect github" title="Click to copy">
+          <span class="p">$</span><span>tidegate connect github</span>
+          <span class="sl-cmd__copy">copy</span>
+        </div>
+        <p class="step-note">
+          Paste a <strong>fine-grained personal access token</strong> once. It is encrypted
+          into a local vault — the last time that token touches your clipboard.
+        </p>
+
+        <div class="sl-cmd" data-copy="tidegate install claude codex cursor" title="Click to copy">
+          <span class="p">$</span><span>tidegate install claude codex cursor</span>
+          <span class="sl-cmd__copy">copy</span>
+        </div>
+        <p class="step-note">
+          Writes each agent's MCP config to point at the gate and mints each one an
+          identity token. No JSON editing.
+        </p>
+
+        <div class="sl-cmd" data-copy="tidegate dashboard" title="Click to copy">
+          <span class="p">$</span><span>tidegate dashboard</span>
+          <span class="sl-cmd__copy">copy</span>
+        </div>
+        <p class="step-note">
+          Then ask Claude to read a file from one of your repos. The call goes through
+          the gate; the first write (say, opening a PR) waits for your approval.
+        </p>
+      </section>
+
+      <section id="how-it-works">
+        <span class="sl-label kicker">02</span>
+        <h2 class="sl-display">How it works</h2>
+
+        <div class="part">
+          <h3 class="sl-mono">vault</h3>
+          <p>
+            Credentials live in an encrypted store on your disk; the master key lives in
+            your OS keychain (macOS Keychain, or the Secret Service on Linux). Nothing
+            syncs anywhere. Deleting the vault deletes the secrets.
+          </p>
+        </div>
+        <div class="part">
+          <h3 class="sl-mono">gateway</h3>
+          <p>
+            A local daemon speaks MCP to your agents. Each agent authenticates with its
+            own token, so every call is attributed. Agents see curated tools —
+            <code>github.read_file</code>, <code>github.list_issues</code>,
+            <code>github.create_pr</code> — never a raw token, never raw HTTP with your
+            credentials.
+          </p>
+        </div>
+        <div class="part">
+          <h3 class="sl-mono">policy</h3>
+          <p>
+            Deny by default. The first time an agent uses a tool you get one question —
+            <em>allow once, always for this repo, or deny</em> — and the answer becomes
+            policy. No policy files, no DSL. Everything you've decided is inspectable
+            and revocable in the dashboard.
+          </p>
+        </div>
+        <div class="part">
+          <h3 class="sl-mono">receipts</h3>
+          <p>
+            Every call is appended to a hash-chained audit log: who called what, with
+            which scope, and the verdict. Append-only means tampering breaks the chain
+            visibly. One dashboard, one revoke button, every agent.
+          </p>
+        </div>
+      </section>
+
+      <section id="commands">
+        <span class="sl-label kicker">03</span>
+        <h2 class="sl-display">Commands</h2>
+        <dl class="cmds">
+          {commands.map((c) => (
+            <>
+              <dt class="sl-mono">{c.cmd}</dt>
+              <dd>{c.desc}</dd>
+            </>
+          ))}
+        </dl>
+      </section>
+
+      <section id="permissions">
+        <span class="sl-label kicker">04</span>
+        <h2 class="sl-display">Permissions</h2>
+        <p>Three verdicts, and only three:</p>
+        <div class="chips">
+          <span class="sl-chip sl-chip--allow">allow</span>
+          <span class="sl-chip sl-chip--ask">ask</span>
+          <span class="sl-chip sl-chip--deny">deny</span>
+        </div>
+        <p>
+          Reads settle into <strong>allow</strong> after you approve them once. Writes —
+          creating PRs, commenting, anything that changes state — default to
+          <strong>ask</strong>, and each approval can be one-time or remembered per repo.
+          <strong>Deny</strong> is permanent until you say otherwise, and denials show up
+          in the receipts too. Scopes are per-repo: an agent allowed to read
+          <code>your-org/app</code> knows nothing about the rest of your account.
+        </p>
+      </section>
+
+      <section id="security">
+        <span class="sl-label kicker">05</span>
+        <h2 class="sl-display">Security model</h2>
+        <p><strong>What Tidegate defends against:</strong> agents and models exfiltrating or
+          misusing credentials. Raw tokens never enter an agent's context, a model's
+          transcript, or an MCP message. Blast radius is per-agent and per-scope, and
+          every action leaves a receipt.</p>
+        <p><strong>What it does not defend against:</strong> a compromised machine. Malware
+          running as your user can read agent configs and impersonate an agent. Tidegate
+          narrows what agents can do; it is not an antivirus.</p>
+        <p class="callout sl-mono">
+          Honesty note: in v0, repo and scope limits are enforced by the gate, not by the
+          token itself. Token-side narrowing via GitHub App installation tokens is on the
+          roadmap. Full threat model lives in the
+          <a href="https://github.com/BlueprintLabIO/tidegate#threat-model">repo</a>.
+        </p>
+      </section>
+
+      <section id="status">
+        <span class="sl-label kicker">06</span>
+        <h2 class="sl-display">Status</h2>
+        <p>
+          Tidegate is v0, in the open, under construction. This page and the landing page
+          are the interface contract — the CLI is being built to match them, in Rust, with
+          the vault and policy engine as its first components.
+          <a href="https://github.com/BlueprintLabIO/tidegate">Star the repo</a> to follow;
+          it's also where the threat model and invariant map land first.
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <span class="sl-mono">Tidegate — MIT or Apache-2.0</span>
+    <nav class="footer__links sl-mono">
+      <a href="/">Home</a>
+      <a href="https://github.com/BlueprintLabIO/tidegate">GitHub</a>
+      <a href="https://tidebase.dev">Tidebase</a>
+    </nav>
+    <span class="sl-mono footer__by">a Blueprint Lab project</span>
+  </footer>
+
+  <script>
+    document.querySelectorAll<HTMLElement>('[data-copy]').forEach((el) =>
+      el.addEventListener('click', function (this: HTMLElement) {
+        navigator.clipboard?.writeText(this.dataset.copy!)
+        const tag = this.querySelector('.sl-cmd__copy')
+        if (tag) {
+          const prev = tag.textContent
+          tag.textContent = 'copied'
+          setTimeout(() => (tag.textContent = prev), 1400)
+        }
+      })
+    )
+  </script>
+</Base>
+
+<style>
+  .topbar {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 26px 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .brand { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; }
+  .brand__glyph { display: inline-flex; border: var(--bw-thin) solid var(--ink); box-shadow: var(--shadow-xs); }
+  .brand__glyph svg { display: block; }
+  .brand__word { font-size: 20px; }
+  .topbar__tag { color: var(--ink-faint); }
+  .topbar > .sl-btn { margin-left: auto; }
+
+  .docs {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    gap: 64px;
+    align-items: start;
+  }
+
+  .toc { position: sticky; top: 28px; display: flex; flex-direction: column; gap: 14px; }
+  .toc__cap { color: var(--ink-faint); }
+  .toc__nav { display: flex; flex-direction: column; gap: 9px; font-size: 12px; font-weight: 700; }
+  .toc__nav a { text-decoration: none; border-bottom: 2px solid transparent; width: fit-content; }
+  .toc__nav a:hover { color: var(--tide); border-bottom-color: var(--tide); }
+
+  .content { min-width: 0; max-width: 66ch; }
+  .content h1 { font-size: clamp(2rem, 4.4vw, 3rem); margin-bottom: 20px; }
+  .lede { font-size: 18px; color: var(--ink-soft); }
+
+  .callout {
+    margin: 22px 0 0;
+    padding: 12px 16px;
+    border-left: 6px solid var(--gate);
+    background: var(--card);
+    font-size: 11.5px;
+    line-height: 1.8;
+    color: var(--ink-soft);
+  }
+  .callout a { color: var(--gate); font-weight: 700; }
+
+  section { margin-top: 64px; }
+  .kicker { color: var(--gate); display: block; margin-bottom: 8px; }
+  section h2 { font-size: 24px; margin-bottom: 16px; }
+  section p { font-size: 15.5px; color: var(--ink-soft); margin-bottom: 14px; }
+  section p strong { color: var(--ink); }
+  section a { color: var(--ink); font-weight: 600; }
+  section a:hover { color: var(--tide); }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--card);
+    border: 1px solid var(--ink-faint);
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+
+  .sl-cmd { margin: 18px 0 8px; max-width: 560px; }
+  .step-note { font-size: 13.5px; color: var(--ink-faint); margin: 0 0 6px; }
+  .step-note a { color: var(--ink-soft); }
+
+  .part { margin: 22px 0; padding-left: 18px; border-left: var(--bw) solid var(--ink); }
+  .part h3 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--tide);
+    margin: 0 0 6px;
+  }
+  .part p { margin: 0; }
+
+  .cmds { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 14px 28px; margin: 0; }
+  .cmds dt { font-size: 12px; font-weight: 700; padding-top: 2px; overflow-wrap: break-word; }
+  .cmds dd { margin: 0; font-size: 14.5px; color: var(--ink-soft); }
+
+  .chips { display: flex; gap: 10px; margin: 4px 0 16px; }
+
+  .footer {
+    border-top: var(--bw) solid var(--ink);
+    background: var(--card);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+    padding: 20px 24px;
+    font-size: 12px;
+  }
+  .footer__links { display: flex; gap: 18px; }
+  .footer__links a { font-weight: 700; }
+  .footer__links a:hover { color: var(--tide); }
+  .footer__by { margin-left: auto; color: var(--ink-faint); }
+
+  @media (max-width: 800px) {
+    .docs { grid-template-columns: 1fr; gap: 36px; }
+    .toc { position: static; }
+    .toc__nav { flex-direction: row; flex-wrap: wrap; gap: 8px 18px; }
+    .cmds { grid-template-columns: 1fr; gap: 4px 0; }
+    .cmds dd { margin-bottom: 14px; }
+    .topbar__tag { display: none; }
+  }
+</style>
