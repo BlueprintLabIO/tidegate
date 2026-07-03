@@ -115,39 +115,59 @@ const jsonLd = JSON.stringify({
   <div class="sl-gauge" role="presentation"></div>
 
   <main>
-    <!-- ================= CHANNEL ================= -->
-    <section class="channel">
-      <div class="channel__grid">
-        <div class="channel__side channel__side--a">
-          <span class="sl-label channel__cap">your agents</span>
-          <div class="channel__names sl-mono">
-            <span>claude <em>→</em></span>
-            <span>codex <em>→</em></span>
-            <span>cursor <em>→</em></span>
+    <!-- ================= DAM ================= -->
+    <section class="dam" aria-label="How requests flow through the gate: agents upstream, GitHub downstream, keys locked inside the dam">
+      <div class="dam__scene" aria-hidden="true">
+        <span class="sl-label dam__cap dam__cap--a">your agents<span class="dam__capx"> · upstream</span></span>
+        <span class="sl-label dam__cap dam__cap--b">github<span class="dam__capx"> · downstream</span></span>
+
+        <!-- upstream pool (high water) -->
+        <div class="dam__water dam__water--l">
+          <div class="dam__buoy dam__buoy--b1" style="--d:0s">claude</div>
+          <div class="dam__buoy dam__buoy--b2" style="--d:.9s">codex</div>
+          <div class="dam__buoy dam__buoy--b3" style="--d:1.7s">cursor</div>
+          <div class="dam__token">ghp_••••</div>
+        </div>
+
+        <!-- downstream pool (low water) -->
+        <div class="dam__water dam__water--r">
+          <div class="dam__buoy dam__buoy--r1" style="--d:.5s">repos</div>
+          <div class="dam__buoy dam__buoy--r2" style="--d:1.3s">issues</div>
+          <div class="dam__buoy dam__buoy--r3" style="--d:2.1s">prs</div>
+        </div>
+
+        <!-- the current through the gate -->
+        <div class="dam__flow">
+          <div class="dam__flowtrack sl-mono">
+            <span>read_file → list_issues → create_pr ✔ → read_file → search_code → comment_pr ✔ → </span>
+            <span>read_file → list_issues → create_pr ✔ → read_file → search_code → comment_pr ✔ → </span>
           </div>
         </div>
 
-        <div class="channel__down sl-mono" aria-hidden="true">↓</div>
-
-        <div class="channel__gate">
-          <span class="channel__gatehead sl-label">tidegate</span>
-          <div class="channel__gatebody">
-            <span class="sl-mono">vault · policy · receipts</span>
-            <span class="sl-chip sl-chip--gate">no tokens beyond this point</span>
+        <!-- the dam wall -->
+        <div class="dam__wall">
+          <div class="dam__wallbody">
+            <span class="dam__name sl-display">Tide<br />gate</span>
+            <div class="dam__vault">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" fill="none" stroke="#0f2233" stroke-width="2.4"></path>
+                <rect x="5" y="11" width="14" height="10" fill="#ff5a47" stroke="#0f2233" stroke-width="2.4"></rect>
+                <rect x="11" y="14" width="2.4" height="4" fill="#0f2233"></rect>
+              </svg>
+              <span class="dam__vaultlabel">vault</span>
+            </div>
+          </div>
+          <div class="dam__gatehole">
+            <div class="dam__door"></div>
           </div>
         </div>
 
-        <div class="channel__down sl-mono" aria-hidden="true">↓</div>
-
-        <div class="channel__side channel__side--b">
-          <span class="sl-label channel__cap">github</span>
-          <div class="channel__names sl-mono">
-            <span><em>→</em> repos</span>
-            <span><em>→</em> issues</span>
-            <span><em>→</em> pull requests</span>
-          </div>
-        </div>
+        <span class="sl-chip sl-chip--gate dam__plate">no tokens beyond this point</span>
       </div>
+      <p class="dam__caption sl-mono">
+        requests pass through the gate — keys stay behind the wall ·
+        <a href="/docs">how it works</a>
+      </p>
     </section>
 
     <!-- ================= FACTS ================= -->
@@ -279,7 +299,7 @@ const jsonLd = JSON.stringify({
   .topbar__docs:hover { color: var(--tide); border-bottom-color: var(--tide); }
 
   /* ---------- hero ---------- */
-  .hero { padding: 76px 0 14px; }
+  .hero { padding: 76px 0 48px; }
   .hero__head {
     position: relative;
     margin-bottom: 44px;
@@ -303,12 +323,7 @@ const jsonLd = JSON.stringify({
   .hero__left { display: flex; flex-direction: column; gap: 34px; min-width: 0; }
   .hero__sub { max-width: 44ch; font-size: 18px; color: var(--ink-soft); }
   .hero__sub strong { color: var(--ink); }
-  .hero__term { min-width: 0; position: relative; z-index: 2; align-self: end; }
-  .hero__term .sl-term {
-    margin-bottom: -38px;
-    /* solid extrude: fill the offset-shadow notch so the gauge can't peek through */
-    box-shadow: 8px 8px 0 var(--ink), 8px 0 0 var(--ink), 0 8px 0 var(--ink);
-  }
+  .hero__term { min-width: 0; align-self: end; }
 
   .hero__install { display: flex; flex-direction: column; }
   .install__label { margin-bottom: 10px; color: var(--ink-faint); }
@@ -316,73 +331,203 @@ const jsonLd = JSON.stringify({
   .install__note { font-size: 11px; color: var(--ink-faint); margin-top: 14px; }
   .install__note a { color: var(--gate); font-weight: 700; }
 
-  /* ---------- channel ---------- */
-  .channel {
+  /* ---------- dam ---------- */
+  .dam { padding: 76px 0 72px; }
+  .dam__scene {
     position: relative;
-    padding: 96px 0 88px;
+    height: 340px;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow);
+    overflow: hidden;
   }
-  .channel::before {
+  .dam__cap { position: absolute; top: 16px; z-index: 6; color: var(--ink-faint); }
+  .dam__cap--a { left: 20px; }
+  .dam__cap--b { right: 20px; }
+
+  /* pools — high water upstream, low water downstream */
+  .dam__water {
+    position: absolute;
+    bottom: 0;
+    z-index: 1;
+    background: var(--tide);
+    border-top: var(--bw) solid var(--ink);
+  }
+  .dam__water--l { left: 0; right: 50%; height: 58%; }
+  .dam__water--r { left: 50%; right: 0; height: 36%; }
+  .dam__water::after {
     content: '';
     position: absolute;
-    left: calc(50% - 50vw);
-    right: calc(50% - 50vw);
-    top: 50%;
-    height: var(--bw);
-    background: var(--ink);
+    inset: auto 0 0 0;
+    height: 36%;
+    background: rgba(15, 34, 51, 0.22);
   }
-  .channel__grid {
-    position: relative;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 48px;
-    align-items: center;
-  }
-  .channel__down { display: none; }
-  .channel__side { display: flex; flex-direction: column; gap: 14px; }
-  .channel__side--a {
-    justify-self: end;
-    align-items: flex-end;
-    text-align: right;
-    transform: translateY(-64px);
-    padding-right: 10px;
-  }
-  .channel__side--b {
-    justify-self: start;
-    transform: translateY(64px);
-    padding-left: 10px;
-  }
-  .channel__cap { color: var(--ink-faint); }
-  .channel__names { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 15px; text-transform: lowercase; }
-  .channel__names em { font-style: normal; color: var(--gate); }
 
-  .channel__gate {
-    position: relative;
-    z-index: 1;
+  .dam__buoy {
+    position: absolute;
+    top: 0;
+    padding: 4px 9px;
+    border: var(--bw-thin) solid var(--ink);
     background: var(--card);
-    border: var(--bw) solid var(--ink);
-    box-shadow: var(--shadow);
-    min-width: 300px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 11px;
+    z-index: 2;
+    animation: dam-bob 3.4s ease-in-out infinite alternate;
+    animation-delay: var(--d, 0s);
   }
-  .channel__gatehead {
-    display: block;
-    text-align: center;
-    padding: 10px 0;
-    color: var(--card);
-    font-size: 13px;
-    border-bottom: var(--bw) solid var(--ink);
-    background:
-      repeating-linear-gradient(90deg, transparent 0 22px, rgba(241, 239, 229, 0.6) 22px 24px),
-      linear-gradient(to bottom, var(--ink) 0 55%, var(--tide) 55% 100%);
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  .dam__buoy--b1 { left: 7%; }
+  .dam__buoy--b2 { left: 29%; }
+  .dam__buoy--b3 { left: 52%; }
+  .dam__buoy--r1 { right: 36%; }
+  .dam__buoy--r2 { right: 19%; }
+  .dam__buoy--r3 { right: 3%; }
+  @keyframes dam-bob {
+    from { transform: translateY(-72%); }
+    to { transform: translateY(-42%); }
   }
-  .channel__gatebody {
-    padding: 18px 20px;
+
+  /* the token that never crosses */
+  .dam__token {
+    position: absolute;
+    top: 0;
+    --tx: 86px;
+    right: var(--tx);
+    padding: 4px 9px;
+    border: var(--bw-thin) solid var(--ink);
+    background: var(--gate);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 11px;
+    z-index: 2;
+    animation: dam-bump 5s ease-in-out infinite;
+  }
+  @keyframes dam-bump {
+    0%, 100% { transform: translate(0, -58%); }
+    38% { transform: translate(9px, -52%) rotate(-2deg); }
+    52% { transform: translate(9px, -55%) rotate(1deg); }
+    72% { transform: translate(0, -58%); }
+  }
+
+  /* the current through the gate */
+  .dam__flow {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 14px;
+    height: 44px;
+    z-index: 2;
+    overflow: hidden;
+    background: repeating-linear-gradient(90deg, rgba(15, 34, 51, 0.3) 0 26px, transparent 26px 52px);
+    animation: dam-current 1.4s linear infinite;
+  }
+  @keyframes dam-current {
+    to { background-position: 52px 0; }
+  }
+  .dam__flowtrack {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(241, 239, 229, 0.95);
+    animation: dam-marquee 16s linear infinite;
+  }
+  .dam__flowtrack span { padding-right: 0; }
+  @keyframes dam-marquee {
+    to { transform: translate(-50%, -50%); }
+  }
+
+  /* the wall */
+  .dam__wall {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 11%;
+    bottom: 0;
+    width: 134px;
+    z-index: 3;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    font-size: 12.5px;
   }
+  .dam__wallbody {
+    flex: 1;
+    border: var(--bw) solid var(--ink);
+    border-bottom: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 26px, rgba(241, 239, 229, 0.22) 26px 29px),
+      var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding-top: 14px;
+  }
+  .dam__name {
+    color: var(--paper);
+    font-size: 16px;
+    text-align: center;
+    line-height: 1.02;
+    letter-spacing: 0.04em;
+  }
+  .dam__vault {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: var(--card);
+    border: var(--bw-thin) solid var(--ink);
+    padding: 8px 12px 6px;
+  }
+  .dam__vault svg { display: block; }
+  .dam__vaultlabel {
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+  }
+  .dam__gatehole {
+    height: 96px;
+    position: relative;
+    border-left: var(--bw) solid var(--ink);
+    border-right: var(--bw) solid var(--ink);
+  }
+  /* the portcullis door, breathing */
+  .dam__door {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -1px;
+    height: 56px;
+    background: repeating-linear-gradient(90deg, var(--ink) 0 10px, rgba(15, 34, 51, 0.28) 10px 19px);
+    border-bottom: 6px solid var(--gate);
+    animation: dam-door 7s ease-in-out infinite alternate;
+  }
+  @keyframes dam-door {
+    from { transform: translateY(0); }
+    to { transform: translateY(-15px); }
+  }
+
+  /* the sign bolted to the wall */
+  .dam__plate {
+    position: absolute;
+    left: 50%;
+    top: 63%;
+    transform: translate(-50%, -50%) rotate(-3deg);
+    z-index: 5;
+    box-shadow: var(--shadow-xs);
+  }
+
+  .dam__caption {
+    margin-top: 22px;
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+  .dam__caption a { color: var(--gate); font-weight: 700; }
 
   /* ---------- facts ---------- */
   .facts { padding: 8px 0 96px; }
@@ -434,41 +579,29 @@ const jsonLd = JSON.stringify({
     .topbar__tag { display: none; }
   }
   @media (max-width: 860px) {
-    .channel { padding: 56px 0; }
-    .channel::before { display: none; }
-    /* vertical channel: a tide-gauge spine on the left, flow runs downward */
-    .channel__grid {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0;
-      padding-left: 40px;
-    }
-    .channel__grid::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 2px;
-      bottom: 2px;
-      width: 15px;
-      border: var(--bw-thin) solid var(--ink);
-      background:
-        repeating-linear-gradient(0deg, transparent 0 24px, rgba(241, 239, 229, 0.85) 24px 27px),
-        linear-gradient(to right, var(--ink) 0 55%, var(--tide) 55% 100%);
-    }
-    .channel__side--a, .channel__side--b { transform: none; }
-    .channel__side--b { align-items: flex-start; text-align: left; }
-    .channel__names { flex-direction: row; flex-wrap: wrap; gap: 6px 20px; }
-    .channel__gate { min-width: 0; align-self: flex-start; }
-    .channel__down {
-      display: block;
-      color: var(--gate);
-      font-weight: 800;
-      font-size: 20px;
-      padding: 14px 0 14px 6px;
-    }
+    .dam { padding: 52px 0; }
+    .dam__scene { height: 300px; }
+    .dam__wall { width: 104px; }
+    .dam__name { font-size: 13px; }
+    .dam__gatehole { height: 80px; }
+    .dam__door { height: 46px; }
+    .dam__buoy { font-size: 10px; padding: 3px 7px; }
+    .dam__token { font-size: 10px; padding: 3px 7px; }
+    .dam__cap--a { left: 12px; }
+    .dam__cap--b { right: 12px; }
+    .dam__flowtrack { display: none; }
+    .dam__plate { top: 60%; }
+    /* narrow pools: fewer buoys, token pressed against the wall */
+    .dam__capx { display: none; }
+    .dam__buoy--b2, .dam__buoy--b3, .dam__buoy--r1, .dam__buoy--r2 { display: none; }
+    .dam__buoy--b1 { left: 5%; }
+    .dam__token { --tx: 34px; }
     .fact { grid-template-columns: 1fr; gap: 14px; padding: 30px 0; }
     .fact__num { font-size: 34px; }
     .fact__receipt { transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dam__buoy, .dam__token, .dam__flow, .dam__flowtrack, .dam__door { animation: none; }
   }
 </style>
