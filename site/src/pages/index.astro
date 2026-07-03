@@ -121,16 +121,17 @@ const jsonLd = JSON.stringify({
         <span class="sl-label dam__cap dam__cap--a">your agents<span class="dam__capx"> · upstream</span></span>
         <span class="sl-label dam__cap dam__cap--b">github<span class="dam__capx"> · downstream</span></span>
 
-        <!-- upstream pool (high water) -->
+        <!-- upstream pool (high water): agents carry gate keys -->
         <div class="dam__water dam__water--l">
           <div class="dam__buoy dam__buoy--b1" style="--d:0s">claude</div>
           <div class="dam__buoy dam__buoy--b2" style="--d:.9s">codex</div>
           <div class="dam__buoy dam__buoy--b3" style="--d:1.7s">cursor</div>
-          <div class="dam__token">ghp_••••</div>
+          <div class="dam__key" style="--d:.4s">tgk_••••</div>
         </div>
 
-        <!-- downstream pool (low water) -->
+        <!-- downstream pool (low water): the raw token works here, never crosses back -->
         <div class="dam__water dam__water--r">
+          <div class="dam__token">ghp_••••</div>
           <div class="dam__buoy dam__buoy--r1" style="--d:.5s">repos</div>
           <div class="dam__buoy dam__buoy--r2" style="--d:1.3s">issues</div>
           <div class="dam__buoy dam__buoy--r3" style="--d:2.1s">prs</div>
@@ -162,10 +163,10 @@ const jsonLd = JSON.stringify({
           </div>
         </div>
 
-        <span class="sl-chip sl-chip--gate dam__plate">no tokens beyond this point</span>
+        <span class="sl-chip sl-chip--gate dam__plate">no tokens <span class="dam__platex">beyond this point</span><span class="dam__plates">past here</span></span>
       </div>
       <p class="dam__caption sl-mono">
-        requests pass through the gate — keys stay behind the wall ·
+        agents carry gate keys upstream — the raw github token works downstream and never crosses back ·
         <a href="/docs">how it works</a>
       </p>
     </section>
@@ -323,7 +324,12 @@ const jsonLd = JSON.stringify({
   .hero__left { display: flex; flex-direction: column; gap: 34px; min-width: 0; }
   .hero__sub { max-width: 44ch; font-size: 18px; color: var(--ink-soft); }
   .hero__sub strong { color: var(--ink); }
-  .hero__term { min-width: 0; align-self: end; }
+  .hero__term {
+    min-width: 0;
+    align-self: start;
+    /* rise to sit beside the headline's short last line: head gap (44px) + one headline line-height */
+    margin-top: calc(-34px - 0.94 * clamp(2.6rem, 6.4vw, 5rem));
+  }
 
   .hero__install { display: flex; flex-direction: column; }
   .install__label { margin-bottom: 10px; color: var(--ink-faint); }
@@ -387,12 +393,29 @@ const jsonLd = JSON.stringify({
     to { transform: translateY(-42%); }
   }
 
-  /* the token that never crosses */
+  /* the gate key agents carry upstream — sanctioned, aqua */
+  .dam__key {
+    position: absolute;
+    top: 0;
+    right: 84px;
+    padding: 4px 9px;
+    border: var(--bw-thin) solid var(--ink);
+    background: var(--tide);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 11px;
+    z-index: 2;
+    animation: dam-bob 3.4s ease-in-out infinite alternate;
+    animation-delay: var(--d, 0s);
+  }
+
+  /* the raw github token, downstream only — bumps the wall, never crosses back */
   .dam__token {
     position: absolute;
     top: 0;
-    --tx: 86px;
-    right: var(--tx);
+    --tx: 196px;
+    left: var(--tx);
     padding: 4px 9px;
     border: var(--bw-thin) solid var(--ink);
     background: var(--gate);
@@ -405,8 +428,8 @@ const jsonLd = JSON.stringify({
   }
   @keyframes dam-bump {
     0%, 100% { transform: translate(0, -58%); }
-    38% { transform: translate(9px, -52%) rotate(-2deg); }
-    52% { transform: translate(9px, -55%) rotate(1deg); }
+    38% { transform: translate(-9px, -52%) rotate(2deg); }
+    52% { transform: translate(-9px, -55%) rotate(-1deg); }
     72% { transform: translate(0, -58%); }
   }
 
@@ -521,6 +544,8 @@ const jsonLd = JSON.stringify({
     box-shadow: var(--shadow-xs);
   }
 
+  .dam__plates { display: none; }
+
   .dam__caption {
     margin-top: 22px;
     font-size: 11.5px;
@@ -573,7 +598,7 @@ const jsonLd = JSON.stringify({
   @media (max-width: 940px) {
     .hero { padding-top: 48px; }
     .hero__row { grid-template-columns: 1fr; gap: 40px; }
-    .hero__term .sl-term { margin-bottom: -30px; }
+    .hero__term { margin-top: 0; }
     .hero__stamp { position: static; transform: rotate(-3deg); margin-top: 20px; }
     .hero__head { display: flex; flex-direction: column; align-items: flex-start; }
     .topbar__tag { display: none; }
@@ -591,11 +616,13 @@ const jsonLd = JSON.stringify({
     .dam__cap--b { right: 12px; }
     .dam__flowtrack { display: none; }
     .dam__plate { top: 60%; }
-    /* narrow pools: fewer buoys, token pressed against the wall */
+    /* narrow pools: fewer buoys, token pressed against the wall's far side */
     .dam__capx { display: none; }
-    .dam__buoy--b2, .dam__buoy--b3, .dam__buoy--r1, .dam__buoy--r2 { display: none; }
+    .dam__platex { display: none; }
+    .dam__plates { display: inline; }
+    .dam__buoy--b2, .dam__buoy--b3, .dam__buoy--r1, .dam__buoy--r2, .dam__buoy--r3, .dam__key { display: none; }
     .dam__buoy--b1 { left: 5%; }
-    .dam__token { --tx: 34px; }
+    .dam__token { --tx: 96px; }
     .fact { grid-template-columns: 1fr; gap: 14px; padding: 30px 0; }
     .fact__num { font-size: 34px; }
     .fact__receipt { transform: none; }
