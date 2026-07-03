@@ -235,7 +235,9 @@ button {
 .sl-term__body {
   padding: 20px 22px;
   overflow-x: auto;
+  scrollbar-width: none; /* decorative demo terminal — no scrollbar chrome */
 }
+.sl-term__body::-webkit-scrollbar { display: none; }
 .sl-term__body .tl { white-space: pre; }
 .sl-term__body .tl--gap { height: 1.1em; }
 .sl-term .p { color: var(--gate); font-weight: 700; }

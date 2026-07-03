@@ -339,8 +339,18 @@ const jsonLd = JSON.stringify({
   }
   .channel__down { display: none; }
   .channel__side { display: flex; flex-direction: column; gap: 14px; }
-  .channel__side--a { transform: translateY(-78px); }
-  .channel__side--b { transform: translateY(78px); align-items: flex-end; text-align: right; }
+  .channel__side--a {
+    justify-self: end;
+    align-items: flex-end;
+    text-align: right;
+    transform: translateY(-64px);
+    padding-right: 10px;
+  }
+  .channel__side--b {
+    justify-self: start;
+    transform: translateY(64px);
+    padding-left: 10px;
+  }
   .channel__cap { color: var(--ink-faint); }
   .channel__names { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 15px; text-transform: lowercase; }
   .channel__names em { font-style: normal; color: var(--gate); }
