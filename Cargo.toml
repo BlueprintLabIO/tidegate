@@ -30,10 +30,12 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 lto = true
 strip = true
 
-# Lint policy: clippy pedantic on, with a curated allow-list for the
-# style-only lints (doc sections, must_use candidates) that add noise without
-# catching defects. The substantive pedantic lints stay active.
+# Lint policy. The `all` groups are the hard gate (deny); pedantic is on as
+# a warning but never a build failure — it evolves across clippy versions, so
+# denying it would break CI on correct code whenever a new lint ships. Curated
+# per-lint allows (priority 0) override the group settings below them.
 [workspace.lints.clippy]
+all = { level = "deny", priority = -2 }
 pedantic = { level = "warn", priority = -1 }
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
