@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tidegate</title>
+<style>
+  :root {
+    --paper:#f1efe5; --card:#fcfbf4; --ink:#0f2233; --ink-soft:#3e5266;
+    --ink-faint:#697c8d; --gate:#ff5a47; --tide:#189e94;
+    --allow:#0e9f6e; --ask:#ffb800; --deny:#e02424;
+    --mono:'Martian Mono',ui-monospace,'SF Mono',Menlo,monospace;
+    --sans:'Archivo',system-ui,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper);
+    background-image:radial-gradient(rgba(15,34,51,.14) 1.2px,transparent 1.2px);
+    background-size:24px 24px; color:var(--ink); font-family:var(--sans); }
+  header { display:flex; align-items:center; gap:14px; padding:20px 26px;
+    border-bottom:3px solid var(--ink); }
+  .mark { display:inline-flex; border:2px solid var(--ink); }
+  h1 { font-size:20px; text-transform:uppercase; letter-spacing:.02em; margin:0;
+    font-weight:900; }
+  .tag { font-family:var(--mono); font-size:10px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.14em; color:var(--ink-faint); }
+  .chain { margin-left:auto; font-family:var(--mono); font-size:11px;
+    font-weight:800; padding:5px 10px; border:2px solid var(--ink); }
+  .chain.ok { background:var(--allow); color:#fff; }
+  .chain.bad { background:var(--deny); color:#fff; }
+  main { max-width:1000px; margin:0 auto; padding:26px; display:grid; gap:26px; }
+  section { border:3px solid var(--ink); background:var(--card); box-shadow:6px 6px 0 var(--ink); }
+  h2 { margin:0; padding:12px 16px; border-bottom:3px solid var(--ink);
+    font-size:12px; font-family:var(--mono); font-weight:800;
+    text-transform:uppercase; letter-spacing:.12em; }
+  .rows { padding:6px 0; }
+  .row { display:flex; align-items:center; gap:12px; padding:9px 16px;
+    font-family:var(--mono); font-size:12px; border-bottom:1px solid rgba(15,34,51,.1); }
+  .row:last-child { border-bottom:0; }
+  .row .t { color:var(--ink-faint); flex:none; }
+  .row .a { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pill { font-weight:800; padding:2px 7px; border:2px solid var(--ink); flex:none; }
+  .allow { background:var(--allow); color:#fff; } .ask { background:var(--ask); }
+  .deny { background:var(--deny); color:#fff; } .posture{ background:var(--tide); color:#fff; }
+  button { font-family:var(--mono); font-weight:700; font-size:11px; cursor:pointer;
+    border:2px solid var(--ink); background:var(--card); padding:5px 10px;
+    text-transform:uppercase; letter-spacing:.05em; }
+  button:hover { background:var(--gate); color:#fff; }
+  button.deny:hover { background:var(--deny); }
+  .empty { padding:16px; font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+  .keybar { padding:16px 26px; font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+</style>
+</head>
+<body>
+<header>
+  <span class="mark"><svg viewBox="0 0 32 32" width="24" height="24">
+    <rect width="32" height="32" fill="#ff5a47"/>
+    <path d="M6 27V12a10 10 0 0 1 20 0v15" fill="none" stroke="#0f2233" stroke-width="3"/>
+    <path d="M11.5 27V10.5M16 27V7M20.5 27V10.5" fill="none" stroke="#0f2233" stroke-width="3"/>
+    <path d="M3 27h26" stroke="#0f2233" stroke-width="3"/></svg></span>
+  <h1>Tidegate</h1>
+  <span class="tag">local control</span>
+  <span id="chain" class="chain ok">chain ✓</span>
+</header>
+<div id="nokey" class="keybar" style="display:none">
+  No key. Open the URL printed by <b>tidegate dashboard</b> (it carries the key in the # fragment).
+</div>
+<main>
+  <section><h2>Pending approvals</h2><div id="pending" class="rows"><div class="empty">loading…</div></div></section>
+  <section><h2>Agents</h2><div id="agents" class="rows"></div></section>
+  <section><h2>Connected servers</h2><div id="servers" class="rows"></div></section>
+  <section><h2>Receipts</h2><div id="receipts" class="rows"></div></section>
+</main>
+<script>
+const KEY = location.hash.slice(1);
+if (!KEY) document.getElementById('nokey').style.display = 'block';
+const H = { 'X-Tidegate-Key': KEY, 'Content-Type':'application/json' };
+async function get(p){ const r = await fetch(p,{headers:H}); if(!r.ok) throw new Error(r.status); return r.json(); }
+async function post(p,b){ const r = await fetch(p,{method:'POST',headers:H,body:JSON.stringify(b)}); return r.json(); }
+function el(t,c,txt){ const e=document.createElement(t); if(c)e.className=c; if(txt!=null)e.textContent=txt; return e; }
+
+async function approve(id, answer, posture){ await post('/api/approve',{id,answer,posture:!!posture}); refresh(); }
+async function revoke(gid){ await post('/api/revoke',{grant_id:gid}); refresh(); }
+
+async function refresh(){
+  if(!KEY) return;
+  try {
+    const pend = await get('/api/pending');
+    const box = document.getElementById('pending'); box.innerHTML='';
+    if(!pend.pending.length) box.appendChild(el('div','empty','Nothing waiting. You are all caught up.'));
+    pend.pending.forEach(p=>{
+      const r = el('div','row');
+      r.appendChild(el('span','pill '+(p.class==='read'?'allow':'ask'), p.class));
+      r.appendChild(el('span','a', p.agent+' → '+p.tool+'  ('+p.resource+')'));
+      const isPosture = p.tool.startsWith('posture.');
+      if(isPosture){
+        const b=el('button',null,'confirm'); b.onclick=()=>approve(p.id,'allow_always',true); r.appendChild(b);
+      } else {
+        const a1=el('button',null,'allow always'); a1.onclick=()=>approve(p.id,'allow_always'); r.appendChild(a1);
+        const a2=el('button',null,'once'); a2.onclick=()=>approve(p.id,'allow_once'); r.appendChild(a2);
+        const d=el('button','deny','deny'); d.onclick=()=>approve(p.id,'deny_once'); r.appendChild(d);
+      }
+      box.appendChild(r);
+    });
+
+    const st = await get('/api/state');
+    const ab = document.getElementById('agents'); ab.innerHTML='';
+    if(!st.agents.length) ab.appendChild(el('div','empty','No agents wired yet.'));
+    st.agents.forEach(a=>{ const r=el('div','row'); r.appendChild(el('span','a',a.agent+'  '+a.project)); ab.appendChild(r); });
+    const sb = document.getElementById('servers'); sb.innerHTML='';
+    if(!st.servers.length) sb.appendChild(el('div','empty','No servers connected.'));
+    st.servers.forEach(s=>{ const r=el('div','row'); r.appendChild(el('span','a',s.name+'  ('+s.command+')')); sb.appendChild(r); });
+
+    const rc = await get('/api/receipts');
+    document.getElementById('chain').className = 'chain '+(rc.chain_broken_at==null?'ok':'bad');
+    document.getElementById('chain').textContent = rc.chain_broken_at==null?'chain ✓ intact':'chain ✗ broken';
+    const rb = document.getElementById('receipts'); rb.innerHTML='';
+    rc.receipts.slice(0,40).forEach(x=>{
+      const r=el('div','row');
+      r.appendChild(el('span','t', new Date(x.at*1000).toLocaleTimeString()));
+      const cls={call:'allow',allow:'allow',ask:'ask',deny:'deny',approval:'allow',posture:'posture'}[x.kind]||'';
+      r.appendChild(el('span','pill '+cls, x.kind));
+      const d = x.detail||{};
+      r.appendChild(el('span','a', x.agent+'  '+(d.tool||d.posture||'')+(d.resource?'  '+d.resource:'')));
+      rb.appendChild(r);
+    });
+  } catch(e){ /* transient */ }
+}
+refresh(); setInterval(refresh, 2000);
+</script>
+</body>
+</html>
