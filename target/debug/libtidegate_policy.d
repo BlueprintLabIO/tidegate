@@ -1,1 +1,1 @@
-/Users/yao/Learning/tidegate/target/debug/libtidegate_policy.rlib: /Users/yao/Learning/tidegate/crates/tidegate-policy/src/lib.rs /Users/yao/Learning/tidegate/crates/tidegate-policy/src/scope.rs
+/Users/yao/Learning/tidegate/target/debug/libtidegate_policy.rlib: /Users/yao/Learning/tidegate/target/package/tidegate-policy-0.1.0/src/lib.rs /Users/yao/Learning/tidegate/target/package/tidegate-policy-0.1.0/src/scope.rs
