@@ -8,7 +8,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/BlueprintLabIO/tidegate"
@@ -16,9 +16,9 @@ homepage = "https://tidegate.dev"
 authors = ["Blueprint Lab <blueprintlabio@gmail.com>"]
 
 [workspace.dependencies]
-tidegate-policy = { path = "crates/tidegate-policy", version = "0.1.0" }
-tidegate-vault = { path = "crates/tidegate-vault", version = "0.1.0" }
-tidegate-daemon = { path = "crates/tidegate-daemon", version = "0.1.0" }
+tidegate-policy = { path = "crates/tidegate-policy", version = "0.2.0" }
+tidegate-vault = { path = "crates/tidegate-vault", version = "0.2.0" }
+tidegate-daemon = { path = "crates/tidegate-daemon", version = "0.2.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"

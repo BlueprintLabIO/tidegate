@@ -7,12 +7,18 @@ const description =
 
 const toc = [
   { id: 'quickstart', label: 'Quickstart' },
+  { id: 'gates', label: 'What it gates' },
   { id: 'how-it-works', label: 'How it works' },
   { id: 'commands', label: 'Commands' },
   { id: 'permissions', label: 'Permissions & scoping' },
   { id: 'approvals', label: 'Approvals' },
   { id: 'security', label: 'Security model' },
   { id: 'status', label: 'Status' },
+]
+
+const httpProviders = [
+  'github-api', 'openai', 'anthropic', 'stripe', 'linear',
+  'notion', 'openrouter', 'slack', 'vercel', 'cloudflare',
 ]
 
 const commands = [
@@ -103,8 +109,47 @@ const commands = [
         </p>
       </section>
 
-      <section id="how-it-works">
+      <section id="gates">
         <span class="sl-label kicker">02</span>
+        <h2 class="sl-display">What it gates</h2>
+        <p>
+          Tidegate gates anything where it owns both the <strong>credential</strong> and the
+          <strong>transport</strong> — two transports today.
+        </p>
+        <div class="part">
+          <h3 class="sl-mono">mcp servers</h3>
+          <p>
+            The gate spawns the MCP server, injects the credential into its environment, and
+            speaks MCP to your agents. GitHub is built in and scoped per repo; any other MCP
+            server connects generically. This matches the MCP spec, which says stdio servers
+            should take credentials from the environment.
+          </p>
+        </div>
+        <div class="part">
+          <h3 class="sl-mono">http apis — the broker proxy</h3>
+          <p>
+            Point a service's base URL at the gate; it injects the credential into the right
+            header and gates the call per method (read/write) and path (resource scope). Your
+            client sends no credential. Built-in presets:
+          </p>
+          <div class="chips">
+            {httpProviders.map((n) => <span class="sl-chip">{n}</span>)}
+          </div>
+          <p style="margin-top:14px">
+            Any other REST API works via <code>TIDEGATE_HTTP_BASE_URL</code>. The catalog schema
+            is referenced from Nango's <code>providers.yaml</code>; the data is our own.
+          </p>
+        </div>
+        <p class="callout sl-mono">
+          Not gated: raw shell commands with a baked-in credential — that belongs to the agent
+          harness's own permissions. OAuth-only services (Google, Slack user-context) are staged
+          behind BYO-OAuth-app; the API-key tier ships first. See
+          <a href="https://github.com/BlueprintLabIO/tidegate/blob/main/docs/providers.md">docs/providers.md</a>.
+        </p>
+      </section>
+
+      <section id="how-it-works">
+        <span class="sl-label kicker">03</span>
         <h2 class="sl-display">How it works</h2>
 
         <div class="part">
@@ -145,7 +190,7 @@ const commands = [
       </section>
 
       <section id="commands">
-        <span class="sl-label kicker">03</span>
+        <span class="sl-label kicker">04</span>
         <h2 class="sl-display">Commands</h2>
         <dl class="cmds">
           {commands.map((c) => (
@@ -158,7 +203,7 @@ const commands = [
       </section>
 
       <section id="permissions">
-        <span class="sl-label kicker">04</span>
+        <span class="sl-label kicker">05</span>
         <h2 class="sl-display">Permissions &amp; scoping</h2>
         <p>Three verdicts, and only three:</p>
         <div class="chips">
@@ -199,7 +244,7 @@ const commands = [
       </section>
 
       <section id="approvals">
-        <span class="sl-label kicker">05</span>
+        <span class="sl-label kicker">06</span>
         <h2 class="sl-display">Approvals</h2>
         <p>
           When a call needs a decision, the gate holds it and reaches you where you already
@@ -247,7 +292,7 @@ const commands = [
       </section>
 
       <section id="security">
-        <span class="sl-label kicker">06</span>
+        <span class="sl-label kicker">07</span>
         <h2 class="sl-display">Security model</h2>
         <p><strong>What Tidegate defends against:</strong> agents and models exfiltrating or
           misusing credentials. Raw tokens never enter an agent's context, a model's
@@ -265,7 +310,7 @@ const commands = [
       </section>
 
       <section id="status">
-        <span class="sl-label kicker">07</span>
+        <span class="sl-label kicker">08</span>
         <h2 class="sl-display">Status</h2>
         <p>
           Tidegate is v0, in the open, under construction. This page and the landing page

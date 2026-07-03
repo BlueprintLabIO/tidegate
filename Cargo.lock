@@ -1222,7 +1222,7 @@ dependencies = [
 
 [[package]]
 name = "tidegate"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "dirs",
@@ -1240,7 +1240,7 @@ dependencies = [
 
 [[package]]
 name = "tidegate-daemon"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rand 0.8.6",
  "rusqlite",
@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "tidegate-policy"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proptest",
  "serde",
@@ -1266,7 +1266,7 @@ dependencies = [
 
 [[package]]
 name = "tidegate-vault"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aes-gcm",
  "keyring",

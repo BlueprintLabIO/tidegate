@@ -1,6 +1,6 @@
 {
   "name": "tidegate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local permissions gate for AI coding agents — connect a service once, every agent gets scoped, audited access. They never see the key.",
   "keywords": ["mcp", "ai", "agents", "permissions", "credentials", "vault", "security", "claude", "codex", "cursor"],
   "homepage": "https://tidegate.dev",
