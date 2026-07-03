@@ -1,0 +1,358 @@
+---
+import Base from '../layouts/Base.astro'
+
+const title = 'Tidegate — stop pasting GitHub tokens into coding agents'
+const description =
+  'Tidegate is a local permissions gate for AI coding agents. Connect GitHub once — Claude, Codex, and Cursor get scoped, audited access. They never see the key.'
+
+const installs = [
+  { pm: 'npm', cmd: 'npm install -g tidegate' },
+  { pm: 'pnpm', cmd: 'pnpm add -g tidegate' },
+  { pm: 'yarn', cmd: 'yarn global add tidegate' },
+  { pm: 'brew', cmd: 'brew install blueprintlabio/tap/tidegate' },
+  { pm: 'curl', cmd: 'curl -fsSL https://tidegate.dev/install.sh | sh' },
+]
+
+const jsonLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Tidegate',
+  description,
+  url: 'https://tidegate.dev',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS, Linux',
+  license: 'https://opensource.org/licenses/MIT',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+})
+---
+
+<Base title={title} description={description}>
+  <script type="application/ld+json" slot="head" set:html={jsonLd} />
+
+  <header class="topbar">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true">
+        <rect width="32" height="32" fill="#ff4d00"></rect>
+        <path d="M6 27V12a10 10 0 0 1 20 0v15" fill="none" stroke="#111" stroke-width="3"></path>
+        <path d="M11.5 27V10.5M16 27V7M20.5 27V10.5" fill="none" stroke="#111" stroke-width="3"></path>
+        <path d="M3 27h26" stroke="#111" stroke-width="3"></path>
+      </svg>
+      <span>Tidegate</span>
+    </a>
+    <span class="topbar__tag sl-label">local permissions gate for coding agents</span>
+    <a class="sl-btn" href="https://github.com/BlueprintLabIO/tidegate">GitHub&nbsp;↗</a>
+  </header>
+
+  <main>
+    <!-- ================= HERO ================= -->
+    <section class="hero">
+      <div class="hero__copy">
+        <span class="sl-stamp sl-rise">v0 · under construction</span>
+        <h1 class="sl-display hero__title">
+          <span class="slab sl-rise" style="animation-delay:.05s">Stop pasting</span>
+          <span class="slab slab--hot sl-rise" style="animation-delay:.15s">GitHub tokens</span>
+          <span class="slab sl-rise" style="animation-delay:.25s">into coding agents.</span>
+        </h1>
+        <p class="hero__sub sl-rise" style="animation-delay:.35s">
+          Tidegate sits between your agents and your credentials. Connect GitHub once —
+          Claude, Codex, and Cursor get scoped, audited access.
+          <strong>They never see the key.</strong>
+        </p>
+      </div>
+
+      <div class="hero__term sl-rise" style="animation-delay:.4s">
+        <div class="sl-term">
+          <div class="sl-term__bar">
+            <span class="sl-term__sq sl-term__sq--a"></span>
+            <span class="sl-term__sq sl-term__sq--b"></span>
+            <span class="sl-term__sq sl-term__sq--c"></span>
+            <span class="sl-term__title">tidegate — zsh</span>
+          </div>
+          <div class="sl-term__body">
+            <div class="tl"><span class="p">$</span> tidegate connect github</div>
+            <div class="tl"><span class="ok">✔</span> github → vault  <span class="dim">encrypted · local only</span></div>
+            <div class="tl tl--gap"></div>
+            <div class="tl"><span class="p">$</span> tidegate install claude</div>
+            <div class="tl"><span class="ok">✔</span> claude can use github  <span class="dim">scoped · no raw token</span></div>
+            <div class="tl tl--gap"></div>
+            <div class="tl"><span class="p">$</span> tidegate dashboard<span class="sl-cursor"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero__install sl-rise" style="animation-delay:.5s">
+        <span class="sl-label install__label">Get the gate</span>
+        <div class="sl-tabs" role="tablist" aria-label="Package manager">
+          {installs.map((it, i) => (
+            <button class="sl-tab" role="tab" aria-selected={i === 0 ? 'true' : 'false'} data-pm={it.pm}>
+              {it.pm}
+            </button>
+          ))}
+        </div>
+        {installs.map((it, i) => (
+          <div class="install__panel" data-pm-panel={it.pm} hidden={i !== 0}>
+            <div class="sl-cmd" data-copy={it.cmd} title="Click to copy">
+              <span class="p">$</span>
+              <span>{it.cmd}</span>
+              <span class="sl-cmd__copy">copy</span>
+            </div>
+          </div>
+        ))}
+        <p class="install__note sl-mono">
+          v0 in development — these commands are the shipping interface.
+          <a href="https://github.com/BlueprintLabIO/tidegate">★ the repo</a> to follow.
+        </p>
+      </div>
+    </section>
+
+    <div class="sl-stripe" role="presentation"></div>
+
+    <!-- ================= FLOW ================= -->
+    <section class="flow">
+      <div class="flow__grid">
+        <div class="flow__box">
+          <span class="sl-label">your agents</span>
+          <div class="flow__chips">
+            <span class="sl-chip">Claude</span>
+            <span class="sl-chip">Codex</span>
+            <span class="sl-chip">Cursor</span>
+          </div>
+        </div>
+        <div class="flow__arrow sl-display" aria-hidden="true">→</div>
+        <div class="flow__box flow__box--gate">
+          <span class="flow__gatehead sl-label">tidegate</span>
+          <div class="flow__gatebody">
+            <span class="sl-mono">vault · policy · receipts</span>
+            <span class="sl-chip sl-chip--deny">tokens stop here</span>
+          </div>
+        </div>
+        <div class="flow__arrow sl-display" aria-hidden="true">→</div>
+        <div class="flow__box">
+          <span class="sl-label">github</span>
+          <div class="flow__chips">
+            <span class="sl-chip">repos</span>
+            <span class="sl-chip">issues</span>
+            <span class="sl-chip">PRs</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FACTS ================= -->
+    <section class="facts">
+      <div class="facts__grid">
+        <article class="sl-card fact">
+          <h2 class="sl-display fact__title">Keys stay home</h2>
+          <p>
+            Agents call tools through the gate — raw tokens never enter an agent's
+            context. Encrypted vault on your disk, master key in your OS keychain.
+          </p>
+        </article>
+
+        <article class="sl-card fact">
+          <h2 class="sl-display fact__title">Ask before write</h2>
+          <p>Reads flow. Writes wait for your one-click approval. You decide once; the gate remembers.</p>
+          <div class="fact__chips">
+            <span class="sl-chip sl-chip--allow">allow · read_file</span>
+            <span class="sl-chip sl-chip--ask">ask · create_pr</span>
+            <span class="sl-chip sl-chip--deny">deny · push --force</span>
+          </div>
+        </article>
+
+        <article class="sl-card fact">
+          <h2 class="sl-display fact__title">Receipts for everything</h2>
+          <p>Append-only, hash-chained audit log. One dashboard, one revoke button, every agent.</p>
+          <div class="sl-receipt" role="img" aria-label="Sample audit receipt">
+            <div class="sl-receipt__head"><span>audit log</span><span>local</span></div>
+            <div class="sl-receipt__row"><span class="t">14:02:11</span><span class="a">claude → github.read_file</span><span class="v v--allow">ALLOW</span></div>
+            <div class="sl-receipt__row"><span class="t">14:02:38</span><span class="a">claude → github.create_pr</span><span class="v v--ask">ASK ✔</span></div>
+            <div class="sl-receipt__row"><span class="t">14:03:05</span><span class="a">codex → git.push --force</span><span class="v v--deny">DENY</span></div>
+            <div class="sl-receipt__hash"><span>chain #a41f…9c2e</span><span>✔ intact</span></div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="sl-mono">Tidegate — MIT or Apache-2.0</span>
+    <nav class="footer__links sl-mono">
+      <a href="https://github.com/BlueprintLabIO/tidegate">GitHub</a>
+      <a href="https://github.com/BlueprintLabIO/tidegate#threat-model">Threat model</a>
+      <a href="https://tidebase.dev">Tidebase</a>
+    </nav>
+    <span class="sl-mono footer__by">a Blueprint Lab project</span>
+  </footer>
+
+  <script>
+    document.querySelectorAll<HTMLElement>('[data-copy]').forEach((el) =>
+      el.addEventListener('click', function (this: HTMLElement) {
+        navigator.clipboard?.writeText(this.dataset.copy!)
+        const tag = this.querySelector('.sl-cmd__copy')
+        if (tag) {
+          const prev = tag.textContent
+          tag.textContent = 'copied'
+          setTimeout(() => (tag.textContent = prev), 1400)
+        }
+      })
+    )
+
+    const tabs = document.querySelectorAll<HTMLElement>('[data-pm]')
+    const panels = document.querySelectorAll<HTMLElement>('[data-pm-panel]')
+    tabs.forEach((tab) =>
+      tab.addEventListener('click', () => {
+        tabs.forEach((t) => t.setAttribute('aria-selected', String(t === tab)))
+        panels.forEach((p) => (p.hidden = p.dataset.pmPanel !== tab.dataset.pm))
+      })
+    )
+  </script>
+</Base>
+
+<style>
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---------- topbar ---------- */
+  .topbar {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 22px 24px 0;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px 8px 8px;
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow-xs);
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-size: 18px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .brand svg { border: 2px solid var(--ink); display: block; }
+  .topbar__tag { color: var(--ink-faint); }
+  .topbar > .sl-btn { margin-left: auto; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 44px;
+    align-items: center;
+    padding: 64px 0 56px;
+  }
+  .hero__copy { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; min-width: 0; }
+  .hero__term { min-width: 0; }
+  .hero__title { font-size: clamp(2rem, 4vw, 3.1rem); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  .slab { display: inline-block; }
+  .slab--hot {
+    background: var(--gate);
+    color: var(--paper);
+    border: var(--bw) solid var(--ink);
+    box-shadow: var(--shadow-xs);
+    padding: 2px 12px 4px;
+  }
+  .hero__sub { max-width: 46ch; font-size: 18px; color: var(--ink-soft); }
+  .hero__sub strong { color: var(--ink); }
+
+  .hero__install {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-width: 620px;
+  }
+  .install__label { margin-bottom: 10px; color: var(--ink-faint); }
+  .install__panel .sl-cmd { border-top-width: 0; }
+  .install__note { font-size: 11px; color: var(--ink-faint); margin-top: 14px; }
+  .install__note a { color: var(--gate); font-weight: 700; }
+
+  /* ---------- flow ---------- */
+  .flow { padding: 56px 0; }
+  .flow__grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1.15fr auto 1fr;
+    align-items: stretch;
+    gap: 18px;
+  }
+  .flow__box {
+    border: var(--bw) solid var(--ink);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    justify-content: center;
+  }
+  .flow__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .flow__arrow { align-self: center; font-size: 34px; }
+  .flow__box--gate { padding: 0; overflow: hidden; }
+  .flow__gatehead {
+    display: block;
+    background: repeating-linear-gradient(-45deg, var(--ink) 0 14px, var(--gate) 14px 28px);
+    color: var(--paper);
+    text-align: center;
+    padding: 9px 0;
+    border-bottom: var(--bw) solid var(--ink);
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+    font-size: 13px;
+  }
+  .flow__gatebody {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 12.5px;
+  }
+
+  /* ---------- facts ---------- */
+  .facts { padding: 8px 0 72px; }
+  .facts__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 26px;
+    align-items: start;
+  }
+  .fact { display: flex; flex-direction: column; gap: 14px; }
+  .fact__title { font-size: 19px; }
+  .fact p { font-size: 15px; color: var(--ink-soft); }
+  .fact__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .fact .sl-receipt { margin-top: 4px; }
+
+  /* ---------- footer ---------- */
+  .footer {
+    border-top: var(--bw) solid var(--ink);
+    background: var(--card);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+    padding: 20px 24px;
+    font-size: 12px;
+  }
+  .footer__links { display: flex; gap: 18px; }
+  .footer__links a { font-weight: 700; }
+  .footer__by { margin-left: auto; color: var(--ink-faint); }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 920px) {
+    .hero { grid-template-columns: 1fr; gap: 36px; padding-top: 44px; }
+    .topbar__tag { display: none; }
+  }
+  @media (max-width: 860px) {
+    .flow__grid { grid-template-columns: 1fr; }
+    .flow__arrow { transform: rotate(90deg); justify-self: center; }
+    .facts__grid { grid-template-columns: 1fr; }
+  }
+</style>

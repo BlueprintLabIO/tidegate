@@ -1,0 +1,144 @@
+---
+import Base from '../layouts/Base.astro'
+
+const swatches = [
+  { name: 'paper', hex: '#F2EFE6' },
+  { name: 'card', hex: '#FFFDF7' },
+  { name: 'ink', hex: '#111111' },
+  { name: 'gate', hex: '#FF4D00' },
+  { name: 'allow', hex: '#0E9F6E' },
+  { name: 'ask', hex: '#FFB800' },
+  { name: 'deny', hex: '#E02424' },
+  { name: 'term', hex: '#141414' },
+]
+---
+
+<Base
+  title="SLUICE — Tidegate design system"
+  description="SLUICE is Tidegate's neo-brutalist design system: paper, ink borders, hard shadows, one loud orange."
+  path="/design"
+>
+  <main>
+    <header class="head">
+      <h1 class="sl-display">Sluice</h1>
+      <p class="sl-mono">
+        Tidegate's design system. A sluice is the gate that controls the flow.
+        Rules: radius 0 · ink borders · hard shadows · one loud orange.
+      </p>
+    </header>
+
+    <section>
+      <h2 class="sl-label">Palette</h2>
+      <div class="swatches">
+        {swatches.map((s) => (
+          <div class="swatch">
+            <div class="swatch__chip" style={`background:${s.hex}`}></div>
+            <span class="sl-mono">--{s.name}</span>
+            <span class="sl-mono dim">{s.hex}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Type</h2>
+      <div class="stack">
+        <span class="sl-display" style="font-size:44px">Archivo Black — display</span>
+        <span style="font-size:18px">Archivo — body text, plain and legible.</span>
+        <span class="sl-mono" style="font-size:14px">Martian Mono — commands, labels, receipts.</span>
+        <span class="sl-label">The label role · mono · tracked wide</span>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Buttons</h2>
+      <div class="row">
+        <a class="sl-btn" href="#">Default</a>
+        <a class="sl-btn sl-btn--gate" href="#">Gate</a>
+        <a class="sl-btn sl-btn--ink" href="#">Ink</a>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Permission chips</h2>
+      <div class="row">
+        <span class="sl-chip">neutral</span>
+        <span class="sl-chip sl-chip--allow">allow · read_file</span>
+        <span class="sl-chip sl-chip--ask">ask · create_pr</span>
+        <span class="sl-chip sl-chip--deny">deny · push --force</span>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Stamp</h2>
+      <span class="sl-stamp">v0 · under construction</span>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Caution stripe</h2>
+      <div class="sl-stripe"></div>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Command row</h2>
+      <div class="sl-cmd" data-copy="npm install -g tidegate" title="Click to copy" style="max-width:520px">
+        <span class="p">$</span><span>npm install -g tidegate</span>
+        <span class="sl-cmd__copy">copy</span>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Terminal</h2>
+      <div class="sl-term" style="max-width:560px">
+        <div class="sl-term__bar">
+          <span class="sl-term__sq sl-term__sq--a"></span>
+          <span class="sl-term__sq sl-term__sq--b"></span>
+          <span class="sl-term__sq sl-term__sq--c"></span>
+          <span class="sl-term__title">tidegate — zsh</span>
+        </div>
+        <div class="sl-term__body">
+          <div class="tl"><span class="p">$</span> tidegate connect github</div>
+          <div class="tl"><span class="ok">✔</span> github → vault  <span class="dim">encrypted · local</span><span class="sl-cursor"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sl-label">Receipt</h2>
+      <div class="sl-receipt" style="max-width:420px">
+        <div class="sl-receipt__head"><span>audit log</span><span>local</span></div>
+        <div class="sl-receipt__row"><span class="t">14:02:11</span><span class="a">claude → github.read_file</span><span class="v v--allow">ALLOW</span></div>
+        <div class="sl-receipt__row"><span class="t">14:02:38</span><span class="a">claude → github.create_pr</span><span class="v v--ask">ASK ✔</span></div>
+        <div class="sl-receipt__hash"><span>chain #a41f…9c2e</span><span>✔ intact</span></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    document.querySelectorAll<HTMLElement>('[data-copy]').forEach((el) =>
+      el.addEventListener('click', function (this: HTMLElement) {
+        navigator.clipboard?.writeText(this.dataset.copy!)
+      })
+    )
+  </script>
+</Base>
+
+<style>
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 44px;
+  }
+  .head h1 { font-size: clamp(3rem, 8vw, 5rem); }
+  .head p { color: var(--ink-soft); font-size: 13px; margin-top: 12px; max-width: 60ch; }
+  h2.sl-label { color: var(--ink-faint); margin-bottom: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .stack { display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 16px; }
+  .swatch { display: flex; flex-direction: column; gap: 6px; font-size: 11px; }
+  .swatch__chip { height: 56px; border: var(--bw) solid var(--ink); box-shadow: var(--shadow-xs); }
+  .dim { color: var(--ink-faint); }
+</style>
