@@ -1,0 +1,20 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update stable && rustup component add clippy
+      - name: Clippy (pedantic gate)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Tests
+        # A master-key file keeps the vault off the CI keychain.
+        run: |
+          head -c 32 /dev/zero > /tmp/tidegate.key
+          TIDEGATE_MASTER_KEY_FILE=/tmp/tidegate.key cargo test --workspace

@@ -1,0 +1,14 @@
+{
+  "name": "tidegate",
+  "version": "0.1.0",
+  "description": "Local permissions gate for AI coding agents — connect a service once, every agent gets scoped, audited access. They never see the key.",
+  "keywords": ["mcp", "ai", "agents", "permissions", "credentials", "vault", "security", "claude", "codex", "cursor"],
+  "homepage": "https://tidegate.dev",
+  "repository": { "type": "git", "url": "https://github.com/BlueprintLabIO/tidegate.git" },
+  "license": "(MIT OR Apache-2.0)",
+  "author": "Blueprint Lab",
+  "bin": { "tidegate": "bin/tidegate.js" },
+  "scripts": { "postinstall": "node install.js" },
+  "files": ["bin/tidegate.js", "install.js"],
+  "engines": { "node": ">=16" }
+}
