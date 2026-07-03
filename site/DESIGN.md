@@ -13,7 +13,7 @@ Live styleguide: `/design`. Implementation: `src/styles/sluice.css` (tokens + `s
 5. **Boxes only for objects.** Border+shadow treatment is reserved for things that are diegetically *objects*: the terminal (a window), the receipt (a paper artifact), the gate (a structure), and interactive controls (buttons, tabs, command rows). Prose, facts, lists, and diagram labels live directly on the paper as typography with hairline rules.
 6. **Flat fills.** No gradients, except the tide gauge bands (navy over aqua = the waterline) used as dividers and the gate's header.
 7. **Paper texture.** Page background is foam `--paper` with a visible dot grid; surfaces are `--card` near-white.
-8. **Motion is scarce.** One staggered rise on hero load (`.sl-rise` + animation-delay), press-into-shadow on hover, blinking terminal cursor. Nothing scroll-driven. Respect `prefers-reduced-motion`.
+8. **Motion is scarce — except inside dioramas.** One staggered rise on hero load (`.sl-rise` + animation-delay), press-into-shadow on hover, blinking terminal cursor. The exception is a *diorama*: a bordered scene that depicts the product as a physical machine (the dam on the landing page) may carry ambient CSS loops — bobbing buoys, a breathing gate door, a moving current. Nothing scroll-driven anywhere. All animation dies under `prefers-reduced-motion`.
 9. **Asymmetry is deliberate.** Compositions stagger (terminal bottom-aligned and dipping into the gauge, channel sides offset above/below the waterline, receipt tilted ~1.5°). Never a grid of equal boxes.
 
 ## Palette
@@ -49,6 +49,7 @@ Fonts load from the Fontsource jsDelivr CDN as woff2 with `font-display: swap` (
 - `.sl-tabs` / `.sl-tab` — package-manager tabs; selected = ink fill, hover = tide fill; `aria-selected` drives state.
 - `.sl-receipt` — audit log as printed receipt: dashed rule head/foot, sawtooth torn bottom edge (pseudo-element), hash line. Uses `filter: drop-shadow` so the shadow follows the teeth.
 - `.sl-stamp` — rotated rubber stamp (coral border + offset outline), used for the "v0 · under construction" honesty mark.
+- **The dam diorama** (`.dam__*`, landing page only) — a cross-section sluice dam: upstream pool higher than downstream (the head difference *is* the argument), agent chips as bobbing buoys, a coral `ghp_••••` token buoy that bumps the wall and never crosses, a vault chamber with padlock inside the wall, a portcullis door breathing over an animated current carrying a marquee of sanctioned calls, and a coral sign bolted to the wall. Physics tells the product story; every element is a flat bordered rectangle.
 
 ## Voice
 
