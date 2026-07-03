@@ -9,18 +9,20 @@ const toc = [
   { id: 'quickstart', label: 'Quickstart' },
   { id: 'how-it-works', label: 'How it works' },
   { id: 'commands', label: 'Commands' },
-  { id: 'permissions', label: 'Permissions' },
+  { id: 'permissions', label: 'Permissions & scoping' },
+  { id: 'approvals', label: 'Approvals' },
   { id: 'security', label: 'Security model' },
   { id: 'status', label: 'Status' },
 ]
 
 const commands = [
   { cmd: 'tidegate connect <service>', desc: 'Add a credential to the vault. GitHub first; paste a fine-grained PAT once and it is encrypted at rest.' },
-  { cmd: 'tidegate install <agent…>', desc: 'Wire agents to the gate — claude, codex, cursor. Writes their MCP config and mints a per-agent identity token.' },
-  { cmd: 'tidegate allow <agent> <tool> [scope]', desc: 'Pre-approve a tool for an agent without waiting for the first-use prompt.' },
-  { cmd: 'tidegate revoke <agent | grant>', desc: 'Cut access now. Applies to the next call — no restart, no config edit.' },
+  { cmd: 'tidegate install <agent…>', desc: 'Wire agents to the gate for this project. Writes their MCP config and mints each a per-project identity token.' },
+  { cmd: 'tidegate allow <agent> <tool> [scope]', desc: 'Request a grant without waiting for the first-use prompt. Takes effect after your one-click confirm.' },
+  { cmd: 'tidegate posture <careful | standard | open>', desc: 'Set how much this project pre-approves. Widening asks for one confirmation; narrowing applies instantly.' },
+  { cmd: 'tidegate revoke <agent | grant>', desc: 'Cut access now. Applies to the next call — no restart, no config edit, no confirmation needed.' },
   { cmd: 'tidegate audit', desc: 'Print the receipt log: every call, every verdict, hash-chained.' },
-  { cmd: 'tidegate dashboard', desc: 'Open the local web dashboard: connections, agents, policies, receipts, revoke buttons.' },
+  { cmd: 'tidegate dashboard', desc: 'Open the local web dashboard: connections, agents, policies, pending approvals, receipts, revoke buttons.' },
 ]
 ---
 
@@ -86,8 +88,9 @@ const commands = [
           <span class="sl-cmd__copy">copy</span>
         </div>
         <p class="step-note">
-          Writes each agent's MCP config to point at the gate and mints each one an
-          identity token. No JSON editing.
+          Writes each agent's project-level MCP config to point at the gate and mints
+          each one a <strong>per-project identity token</strong> — what you approve here
+          applies to this project only. No JSON editing.
         </p>
 
         <div class="sl-cmd" data-copy="tidegate dashboard" title="Click to copy">
@@ -156,7 +159,7 @@ const commands = [
 
       <section id="permissions">
         <span class="sl-label kicker">04</span>
-        <h2 class="sl-display">Permissions</h2>
+        <h2 class="sl-display">Permissions &amp; scoping</h2>
         <p>Three verdicts, and only three:</p>
         <div class="chips">
           <span class="sl-chip sl-chip--allow">allow</span>
@@ -166,15 +169,85 @@ const commands = [
         <p>
           Reads settle into <strong>allow</strong> after you approve them once. Writes —
           creating PRs, commenting, anything that changes state — default to
-          <strong>ask</strong>, and each approval can be one-time or remembered per repo.
+          <strong>ask</strong>, and each approval can be one-time or remembered.
           <strong>Deny</strong> is permanent until you say otherwise, and denials show up
-          in the receipts too. Scopes are per-repo: an agent allowed to read
-          <code>your-org/app</code> knows nothing about the rest of your account.
+          in the receipts too.
+        </p>
+        <p>
+          <strong>Identity is agent × project.</strong> Running <code>tidegate install</code>
+          inside a project wires that agent for that project; grants bind to the pair.
+          Claude in <code>~/code/app</code> carries nothing you approved for Claude anywhere else.
+        </p>
+        <p>
+          <strong>Scope infers itself.</strong> The gate reads the project's git remote and
+          proposes scope = the repo you're standing in, so the first prompt arrives with the
+          right answer pre-selected. You never type a scope for the common case.
+        </p>
+        <p>
+          <strong>Repo scope is the default, not the ceiling.</strong> Scopes form a small
+          lattice — one repo → a named list of repos → org-wide read. Wider scopes take a
+          deliberate ask and default to an expiry, so "org read for the next hour" exists
+          for burst work without any permanent widening.
+        </p>
+        <p>
+          <strong>Asks are rare by design.</strong> A prompt fires only for a novel
+          (agent, tool-class, scope) combination, and related tools are bundled — "standard
+          read access to this repo" is one question, not six. Expect two or three prompts in
+          a project's first session and near-silence after. If a project still prompts after
+          its first week, we consider that a bug in our defaults, not your problem.
+        </p>
+      </section>
+
+      <section id="approvals">
+        <span class="sl-label kicker">05</span>
+        <h2 class="sl-display">Approvals</h2>
+        <p>
+          When a call needs a decision, the gate holds it and reaches you where you already
+          are, in order:
+        </p>
+        <div class="part">
+          <h3 class="sl-mono">in your agent's session</h3>
+          <p>
+            Where the client supports MCP elicitation, the prompt renders inside the agent
+            session itself — you answer in the same terminal you're typing in, the held call
+            resolves, and your answer becomes standing policy.
+          </p>
+        </div>
+        <div class="part">
+          <h3 class="sl-mono">os notification</h3>
+          <p>
+            Otherwise the daemon posts a native notification with approve / deny actions.
+            One click resolves the held call. The dashboard shows the same pending queue.
+          </p>
+        </div>
+        <div class="part">
+          <h3 class="sl-mono">timeout, written for the model</h3>
+          <p>
+            If nothing answers before the client's tool timeout, the agent receives a
+            structured "approval pending — retry after the user approves" result it can act
+            on. Approve whenever; the retry sails through. The loop self-heals instead of erroring.
+          </p>
+        </div>
+        <p>
+          <strong>Widening needs a human; narrowing never does.</strong> Commands that reduce
+          access — <code>revoke</code>, <code>posture careful</code> — apply instantly from any
+          shell. Commands that expand it — <code>allow</code>, <code>posture open</code> — only
+          <em>request</em>, and take effect after your one-click confirm. An agent typing
+          <code>tidegate posture open</code> into a shell gets a pending request and a receipt,
+          not access.
+        </p>
+        <p>
+          <strong>Postures</strong> set how much a project pre-approves, per project:
+          <strong>careful</strong> (everything asks), <strong>standard</strong> (reads flow
+          after connect, writes ask — the default), and <strong>open</strong> (everything
+          flows; receipts and revoke stay on). A posture is not a bypass switch: confirming
+          one simply writes ordinary grants, so the audit log, the kill switch, and the
+          policy engine's guarantees hold identically in all three.
         </p>
       </section>
 
       <section id="security">
-        <span class="sl-label kicker">05</span>
+        <span class="sl-label kicker">06</span>
         <h2 class="sl-display">Security model</h2>
         <p><strong>What Tidegate defends against:</strong> agents and models exfiltrating or
           misusing credentials. Raw tokens never enter an agent's context, a model's
@@ -192,7 +265,7 @@ const commands = [
       </section>
 
       <section id="status">
-        <span class="sl-label kicker">06</span>
+        <span class="sl-label kicker">07</span>
         <h2 class="sl-display">Status</h2>
         <p>
           Tidegate is v0, in the open, under construction. This page and the landing page
